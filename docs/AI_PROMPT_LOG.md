@@ -23,4 +23,3 @@ Append-only record for transparent AI use. Record user-visible requests and impl
 - Decision/result: Use an isolated local Git repository, require `What:` and `Why:` commit sections, reject docs-only staged changes by default, cap concurrent independent subagents at three, and explicitly separate Android/browser/iOS evidence.
 - Disposition: adopted with safety constraints.
 - Verification/evidence: bootstrap contract test and generated-repository checks are required before this entry is considered complete.
-

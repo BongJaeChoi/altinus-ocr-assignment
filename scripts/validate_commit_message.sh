@@ -29,4 +29,3 @@ if ! awk '
   printf 'ERROR: commit body requires non-empty What: and Why: sections.\n' >&2
   exit 1
 fi
-

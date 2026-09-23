@@ -62,4 +62,3 @@ forbidden_agents:
   - docs_only_writer
   - unscoped_parallel_implementer
   - submitter_without_fresh_user_authorization
-
