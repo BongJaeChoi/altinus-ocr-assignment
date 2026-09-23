@@ -1,0 +1,52 @@
+template: true
+task_id: example-camera-permission-adapter
+plan_source: docs/IMPLEMENTATION_PLAN.md#camera-permission-adapter
+status: example_only_do_not_execute
+
+depends_on:
+  - foundation-contract
+
+allowed_paths:
+  - lib/features/camera/**
+  - test/features/camera/**
+
+forbidden_paths:
+  - pubspec.yaml
+  - lib/main.dart
+  - docs/IMPLEMENTATION_PLAN.md
+  - .agents/**
+
+shared_file_requests:
+  - path: pubspec.yaml
+    requested_change: add the planner-approved camera package constraint before this task starts
+
+inputs:
+  - docs/CONTEXT.md camera and permission domain rules
+  - approved camera interface from the foundation contract
+
+acceptance_criteria:
+  - map granted, denied, permanently denied, and restricted permission outcomes
+  - expose camera initialization and capture failures without plugin types crossing the adapter boundary
+  - release camera resources when the owner is disposed
+
+tests_to_write:
+  - test/features/camera/camera_permission_adapter_test.dart
+  - test/features/camera/camera_lifecycle_adapter_test.dart
+
+verification_commands:
+  - flutter test test/features/camera
+  - flutter analyze lib/features/camera test/features/camera
+
+stop_and_return_when:
+  - a dependency task is incomplete or its interface differs from the plan
+  - a required edit falls outside allowed_paths
+  - another active task owns an overlapping path
+  - an architecture or dependency decision is missing
+  - an unrelated existing failure prevents scoped verification
+
+handoff_evidence:
+  - changed files
+  - failing-test output observed before implementation
+  - passing verification output after implementation
+  - shared-file change requests
+  - residual risks and blocked acceptance criteria

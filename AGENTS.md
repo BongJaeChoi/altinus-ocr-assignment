@@ -62,7 +62,13 @@ Allowed types: `feat`, `fix`, `test`, `refactor`, `perf`, `build`, `ci`, `docs`,
 - Use a subagent only for a bounded, independent question with a defined output.
 - Consult `.agents/catalog.yaml` and choose the lowest-cost model/effort that can reliably do the task.
 - Maximum concurrent subagents: 3.
+- Use `file_finder` for targeted file, symbol, usage, configuration, and test searches; it is read-only and returns exact `path:line` evidence.
+- `solution_planner` owns architecture and the execution plan but cannot write production code.
+- A writer may start only from an approved task contract derived from `.agents/task-contract.yaml`.
+- Parallel writers require dependency-ready contracts, disjoint allowed paths, and separate Git worktrees.
 - Never let two agents edit the same file set concurrently.
+- The main agent owns dependency manifests, app entry points, routing, dependency injection, integration, and other shared files.
+- `flutter_task_executor` implements one contract with tests and cannot change the plan. It must stop and return on ambiguity, missing dependencies, path overlap, shared-file needs, or architecture changes.
 - Keep dependent, short, or security-sensitive steps in the main agent.
 - Review every returned claim against repository evidence before adoption.
 

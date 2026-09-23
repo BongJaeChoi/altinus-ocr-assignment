@@ -2,7 +2,11 @@ version: 1
 policy:
   max_concurrent: 3
   require_independent_scope: true
+  require_approved_plan: true
+  require_task_contract: true
+  require_isolated_worktree_for_parallel_writers: true
   forbid_same_file_parallel_edits: true
+  main_agent_owns_shared_files: true
   default_to_main_agent_for_short_or_dependent_work: true
   model_selection_basis: >-
     Use the lowest-cost model and effort that reliably fits the bounded task;
@@ -16,6 +20,14 @@ agents:
     use_for: inventory, focused file discovery, command/output collection
     output: paths, facts, unknowns, and exact evidence only
 
+  file_finder:
+    model: gpt-5.6-luna
+    effort: low
+    mode: read_only
+    use_for: frequent targeted searches for files, symbols, usages, tests, and configuration
+    method: use rg --files and rg -n first; inspect only the smallest relevant file ranges
+    output: exact path:line evidence, relevance, related tests, and unknowns; no design or edits
+
   requirements_analyst:
     model: gpt-5.6-terra
     effort: medium
@@ -23,18 +35,27 @@ agents:
     use_for: source reconciliation, acceptance-criteria gaps, requirement traceability
     output: requirement-to-evidence ledger with conflicts labeled
 
-  flutter_implementer:
+  solution_planner:
     model: gpt-5.6-sol
     effort: high
-    mode: write_scoped
-    use_for: one bounded Flutter vertical slice after a failing test exists
-    output: changed files, tradeoffs, tests run, residual risks
+    mode: plan_only
+    use_for: architecture and execution-ready plans before any production implementation
+    output: approved plan plus one task contract per executable unit, including dependencies, ownership, tests, commands, and stop conditions
+
+  flutter_task_executor:
+    model: gpt-5.6-terra
+    effort: medium
+    mode: write_one_contract
+    use_for: one approved Flutter task contract using red-green-refactor within allowed paths
+    escalation: use terra/high for lifecycle, concurrency, native plugins, or hard diagnosis; use sol/high only with a recorded reason
+    stop_when: plan ambiguity, missing dependency, shared-file edit, path overlap, architecture change, or verification failure outside scope
+    output: changed files, red-green evidence, verification results, shared-file requests, and residual risks
 
   test_designer:
     model: gpt-5.6-sol
     effort: high
     mode: write_tests_only
-    use_for: state-machine, race, lifecycle, bad-input, and failure-injection tests
+    use_for: cross-task state-machine, race, lifecycle, bad-input, and failure-injection test contracts when the planner needs specialist help
     output: failing test and the exact behavior it specifies
 
   android_e2e:
@@ -53,12 +74,15 @@ agents:
 
   code_reviewer:
     model: gpt-5.6-sol
-    effort: xhigh
+    effort: high
     mode: read_only
     use_for: final cross-platform correctness, concurrency, lifecycle, and evidence audit
+    escalation: use xhigh only for unresolved release-critical risk with a recorded reason
     output: severity-ranked findings with file/line evidence; no edits
 
 forbidden_agents:
   - docs_only_writer
   - unscoped_parallel_implementer
+  - planner_who_also_implements
+  - executor_who_replans
   - submitter_without_fresh_user_authorization
