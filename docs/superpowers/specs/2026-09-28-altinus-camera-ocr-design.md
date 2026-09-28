@@ -2,7 +2,7 @@
 
 Date: 2026-09-28
 
-Status: written design awaiting final user review
+Status: approved by the user on 2026-09-28
 
 Authority: Altinus assignment README at commit `cb7c0d5323e9c0f347253cf52c09594e18342ced`
 
