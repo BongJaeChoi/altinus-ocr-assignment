@@ -211,3 +211,65 @@ Append-only record for transparent AI use. Record user-visible requests and impl
 - Disposition: adopted. 외부 SDK·플랫폼 코드를 화면 상태와 분리하면 fake 기반 상태 테스트, iOS/Android 구현 교체, stale-result 차단, 병렬 작업의 파일 소유권을 명확히 할 수 있기 때문이다.
 - Rejected/modified: 화면 위젯이 camera/Firebase/Pigeon을 직접 호출하는 구조와 모든 책임을 하나의 controller에 넣는 구조는 테스트 격리와 변경 안정성을 해치므로 기각했다. 작은 과제인 만큼 별도 use-case 계층은 중복 위임만 만들 수 있어 두지 않는다.
 - Verification/evidence: user approval; Flutter app architecture official guidance; Riverpod provider guidance; Pigeon package contract.
+
+### 2026-09-28 — user + AI / OCR 상태·데이터 흐름 승인
+
+- Request/prompt: 클라우드 우선·온디바이스 폴백 상태 흐름을 그림으로 검토하고, 해당 플로우 차트를 기록으로 보존.
+- Decision/result: 아래 Mermaid 차트를 승인된 데이터 흐름의 시각적 원본으로 사용한다. 최종 설계 spec에는 구현과 일치하도록 이 차트를 옮기며, 이후 상태 이름이나 분기가 바뀌면 새 결정 항목으로 차이를 기록한다.
+- Disposition: adopted. 재시도·10초 지연·사용자 전환·stale result·파일 정리가 여러 비동기 분기로 연결되므로 문장보다 상태 전이 그림이 모순을 찾기 쉽기 때문이다.
+- Verification/evidence: user-approved design section 2/4; implementation and automated transition tests pending.
+
+```mermaid
+flowchart TD
+    START([앱 시작]) --> NOTICE{최초 안내를 확인했나?}
+
+    NOTICE -- 아니오 --> DISCLOSURE["카메라 사용 목적<br/>클라우드 전송 안내"]
+    DISCLOSURE --> START_CAMERA["카메라 시작"]
+    START_CAMERA --> PERMISSION{카메라 권한}
+
+    NOTICE -- 예 --> PERMISSION
+    PERMISSION -- 허용 --> READY["카메라 준비<br/>후면 카메라 · 자동 플래시/끔"]
+    PERMISSION -- 거부 --> DENIED["자연스러운 권한 안내"]
+    DENIED --> RETRY_PERMISSION["다시 요청 또는 설정 열기"]
+    RETRY_PERMISSION --> PERMISSION
+
+    READY --> CAPTURE["촬영<br/>버튼 잠금 · transactionId 생성"]
+    CAPTURE --> TEMP["원본 임시 파일 보관"]
+    TEMP --> PREPARE["방향 정규화<br/>요청 크기 제한 확인"]
+    PREPARE --> CLOUD1["클라우드 인식 1/2"]
+
+    CLOUD1 --> CLOUD_RESULT{클라우드 응답}
+    CLOUD2["백오프 후 클라우드 인식 2/2"] --> CLOUD_RESULT
+    CLOUD_RESULT -- textDetected --> RESULT["인식 결과 표시"]
+    CLOUD_RESULT -- noReadableText --> EMPTY["읽을 수 있는 글자 없음"]
+    CLOUD_RESULT -- 일시적 오류 --> ATTEMPTS{남은 시도가 있나?}
+    CLOUD_RESULT -- 재시도 불가 --> FALLBACK["기기에서 인식 제안"]
+    ATTEMPTS -- 예 --> CLOUD2
+    ATTEMPTS -- 아니오 --> FALLBACK
+
+    CLOUD1 -. 첫 요청부터 10초 경과 .-> SLOW["조금 더 걸리고 있어요"]
+    CLOUD2 -. 누적 10초 경과 .-> SLOW
+
+    SLOW --> WAIT{사용자 선택}
+    WAIT -- 조금 더 기다리기 --> SAME["기존 요청 유지<br/>새 요청·횟수 증가 없음"]
+    SAME --> CLOUD_RESULT
+    WAIT -- 기기에서 인식 --> INVALIDATE["클라우드 transactionId 무효화"]
+    FALLBACK --> INVALIDATE
+
+    INVALIDATE --> LOCAL["Pigeon → Kotlin/Swift<br/>공식 ML Kit Korean OCR"]
+    LOCAL --> LOCAL_RESULT{온디바이스 결과}
+    LOCAL_RESULT -- 텍스트 있음 --> RESULT
+    LOCAL_RESULT -- 텍스트 없음 --> EMPTY
+    LOCAL_RESULT -- 실패 --> RECOVER["다시 촬영 안내"]
+
+    INVALIDATE -. 늦게 도착한 클라우드 결과 .-> IGNORED["requestId 불일치<br/>결과 무시"]
+
+    RESULT --> ACTION{다음 행동}
+    ACTION -- 다시 촬영 --> CLEANUP["원본·파생 임시 파일 삭제"]
+    ACTION -- 다른 방법으로 인식 --> INVALIDATE
+    EMPTY --> EMPTY_ACTION{다음 행동}
+    EMPTY_ACTION -- 다시 촬영 --> CLEANUP
+    EMPTY_ACTION -- 기기에서 인식 --> INVALIDATE
+    RECOVER --> CLEANUP
+    CLEANUP --> READY
+```
