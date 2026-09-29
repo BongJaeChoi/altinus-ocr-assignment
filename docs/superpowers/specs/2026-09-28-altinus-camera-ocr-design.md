@@ -22,7 +22,7 @@ The implementation prioritizes functional completeness, observable recovery, and
 | Camera | Flutter team `camera 0.12.1`, rear camera only |
 | State | `flutter_riverpod 3.4.3`, manual `NotifierProvider`, no Riverpod code generation |
 | Cloud OCR | Firebase AI Logic through Gemini Developer API, `gemini-3.8-flash`, low thinking level, structured JSON |
-| FlutterFire line | Xcode-compatible BoM `4.11.0` family: `firebase_core 4.6.0`, `firebase_ai 3.10.0`; App Check is not wired into the evaluation build |
+| FlutterFire line | Xcode-compatible BoM `4.11.0` family: `firebase_core 4.6.0`, `firebase_ai 3.10.0`; App Check dependencies are transitively packaged, but activation, a token provider, and enforcement are not configured |
 | HTTP client | No custom endpoint is in scope. `firebase_ai` owns its transport. If a direct HTTP requirement appears, use a pinned Dio version behind an adapter instead of implementing raw `HttpClient`; do not add Dio before that need exists |
 | Local OCR | Official bundled Google ML Kit Korean Text Recognition on Android and iOS |
 | Native bridge | Pigeon `29.0.4`; generated Dart/Kotlin/Swift files are committed and never edited manually |
@@ -185,7 +185,7 @@ Firebase AI Logic uses the Gemini Developer API from the client SDK. A direct Ge
 
 The app does not duplicate SDK networking with a raw `dart:io HttpClient`, a hand-written retrying client, or an unused Dio wrapper. Dio is introduced only if a direct non-Firebase endpoint becomes an approved requirement. Such an adapter must reuse the domain error boundary, obey the transaction-level 60-second budget, support request cancellation where possible, and disable request/response body logging because payloads can contain images or recognized text.
 
-The evaluation build uses the no-billing/free path only after live quota and model availability are rechecked. App Check integration and enforcement are excluded from the evaluation build because an unknown evaluator device cannot be pre-registered. This is documented as an abuse-protection trade-off, not a production recommendation.
+The evaluation build uses the no-billing/free path only after live quota and model availability are rechecked. `firebase_ai` transitively packages App Check dependencies, but the app does not activate App Check, install a token provider, or enable enforcement because an unknown evaluator device cannot be pre-registered. This is documented as an abuse-protection trade-off, not a production recommendation.
 
 The local fallback bundles the official Korean recognizer on both platforms so it works without a model download. Its supported claim is Korean and Latin-family text; wider language coverage belongs to cloud OCR. Cloud unavailability must not prevent the evaluator from exercising the local fallback.
 

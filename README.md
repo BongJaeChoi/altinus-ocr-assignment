@@ -41,7 +41,7 @@ OcrScreen (immutable UI)
 
 - **Flutter:** 하나의 상태/UI 구현으로 iOS·Android 흐름을 맞추기 위해 선택했습니다. 반면 카메라, ML Kit, 권한·lifecycle은 플랫폼별 동작과 도구 체인을 별도로 검증해야 합니다.
 - **수동 Riverpod:** `NotifierProvider` override로 controller와 외부 adapter를 격리하면서 작은 과제에 code generation 단계를 늘리지 않습니다. 상태·provider 연결 boilerplate는 직접 유지합니다.
-- **Firebase AI Logic:** 공식 모바일 SDK의 구조화 응답과 cloud-first 확장성을 사용합니다. 승인된 Firebase provisioning과 live model/quota 검증이 아직 없고 App Check도 평가 build에서는 제외했습니다. 이미지가 cloud로 전송되므로 개인정보·네트워크 지연·서비스 가용성 비용이 있습니다.
+- **Firebase AI Logic:** 공식 모바일 SDK의 구조화 응답과 cloud-first 확장성을 사용합니다. 승인된 Firebase provisioning과 live model/quota 검증이 아직 없습니다. App Check 전이 의존성은 SDK와 함께 패키징되지만 활성화·token provider·enforcement는 평가 build에 구성하지 않았습니다. 이미지가 cloud로 전송되므로 개인정보·네트워크 지연·서비스 가용성 비용이 있습니다.
 - **Pigeon + 공식 ML Kit:** raw channel payload 대신 typed Dart/Kotlin/Swift 경계를 두고 오프라인 Korean OCR을 제공합니다. recognizer가 앱 binary 크기를 늘리고 두 native host와 contract를 유지해야 합니다. platform error code는 domain failure로만 매핑하며 UI에 노출하지 않습니다.
 - **공식 camera:** Flutter team package로 preview/capture/lifecycle 기반을 공유합니다. 실제 권한, 방향, flash, 임시 파일 수명과 성능은 양 실기기 증거가 필요합니다.
 - **bounded image preparation:** isolate에서 방향·decode·픽셀·업로드 크기를 제한해 UI/메모리 위험을 경계합니다. 축소에는 OCR 품질 비용이 있고 decode/encode 자체의 CPU 비용도 있으므로 자동 보정·deskew는 근거 없이 추가하지 않았습니다.
@@ -64,13 +64,13 @@ OcrScreen (immutable UI)
 
 ## 검증
 
-아래는 pre-release 기능/잠금 소스 커밋 `e930239`, `11169d6`에서 2026-09-29 KST에 관찰한 release gate입니다. 결과가 없는 실기기 항목을 통과로 해석하면 안 됩니다.
+아래는 pre-release 범위 `e930239..HEAD`(잠금 커밋 `11169d6` 포함)에서 2026-09-29 KST에 관찰한 release gate입니다. 결과가 없는 실기기 항목을 통과로 해석하면 안 됩니다.
 
 | Gate | 관찰 결과 |
 | --- | --- |
 | `flutter pub get`, Pigeon 재생성, 생성물 diff | PASS — 생성 Dart/Kotlin/Swift diff 없음 |
 | handwritten Dart format (`lib/src/generated` 제외) | PASS — 43 files, 0 changed |
-| `flutter test` | PASS — 213 tests |
+| `flutter test` | PASS — 214 tests (final-review follow-up 포함) |
 | `flutter analyze` (현재 한글 상위 경로) | BLOCKED/FAIL — 분석 전에 LSP `FormatException: Unterminated string`; 아래 ASCII 경로 검증 사용 |
 | `flutter build apk --debug` | PASS — Gradle strict lock 적용 상태 |
 | Android `:app:testDebugUnitTest :app:lintDebug` | PASS |

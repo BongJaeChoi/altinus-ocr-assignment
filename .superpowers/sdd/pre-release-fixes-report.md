@@ -32,6 +32,8 @@ After implementation:
 
 Configured `configuration` and `service` failures remain recoverable, and the tests assert that technical codes/details do not render in UI.
 
+Final-review follow-up added the missing pending-capability plus `service` failure invariant: the focused controller suite passed 75 and the full suite passed 214. This test-only/doc-only follow-up does not alter the clean-clone production graph recorded below.
+
 ## Lock generation and reproducibility
 
 ### Android
@@ -80,7 +82,7 @@ Pigeon 29.0.4 currently emits trailing spaces in four Dart constructor parameter
 
 ## Remaining release gates
 
-1. An authorized Firebase project, mobile app configuration, model/quota/location, and live cloud run; App Check remains intentionally absent from the evaluation build.
+1. An authorized Firebase project, mobile app configuration, model/quota/location, and live cloud run; App Check dependencies are transitively packaged, but activation, token-provider use, and enforcement remain intentionally unconfigured in the evaluation build.
 2. Separate Android and iPhone physical evidence for camera, permission/settings, native Korean text/glyphs, lifecycle/orientation, bad input, rapid taps, repeated captures, flash, and profile-mode frame/memory/CPU/heat behavior.
 3. Production bundle identifiers, Android release signing, Apple signing/provisioning, and a release-owner decision on unproven flash UI.
 4. A future `firebase_ai` update is needed before Flutter makes its legacy Kotlin-plugin/SwiftPM warnings hard errors.

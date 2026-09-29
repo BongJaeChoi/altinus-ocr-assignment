@@ -737,6 +737,21 @@ void main() {
       });
     });
 
+    test('pending capability does not auto-fallback a service failure', () {
+      fakeAsync((async) {
+        final harness = _Harness(async, cloudConfigurationPending: true)
+          ..startCloud(async);
+
+        harness.cloud.fail(0, OcrFailure.of(OcrFailureKind.service));
+        async.flushMicrotasks();
+
+        final recovery = harness.state as CloudRecovery;
+        expect(recovery.failure.kind, OcrFailureKind.service);
+        expect(harness.local.paths, isEmpty);
+        harness.dispose(async);
+      });
+    });
+
     for (final failureKind in <OcrFailureKind>[
       OcrFailureKind.configuration,
       OcrFailureKind.service,
