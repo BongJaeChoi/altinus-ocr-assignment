@@ -14,10 +14,10 @@ const artinusCloudEvidenceEnabled = bool.fromEnvironment(
 );
 
 AppleAppCheckProvider selectEvaluatorAppleProvider({
-  required bool isReleaseMode,
+  required bool isDebugMode,
   required String debugToken,
 }) {
-  if (isReleaseMode || debugToken.trim().isEmpty) {
+  if (!isDebugMode || debugToken.trim().isEmpty) {
     throw StateError('Apple cloud evaluation is unavailable');
   }
   return AppleDebugProvider(debugToken: debugToken);
@@ -47,7 +47,7 @@ final class ProductionFirebaseCloudRuntime implements FirebaseCloudRuntime {
     if (Platform.isIOS) {
       await FirebaseAppCheck.instance.activate(
         providerApple: selectEvaluatorAppleProvider(
-          isReleaseMode: kReleaseMode,
+          isDebugMode: kDebugMode,
           debugToken: evaluatorIosAppCheckDebugToken,
         ),
       );

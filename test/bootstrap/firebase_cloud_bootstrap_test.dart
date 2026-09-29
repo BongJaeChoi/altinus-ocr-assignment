@@ -13,7 +13,7 @@ void main() {
 
   test('iOS debug selects the explicit registered debug token', () {
     final provider = selectEvaluatorAppleProvider(
-      isReleaseMode: false,
+      isDebugMode: true,
       debugToken: '11111111-1111-1111-1111-111111111111',
     );
 
@@ -26,16 +26,15 @@ void main() {
 
   test('iOS debug rejects a blank token without exposing it', () {
     expect(
-      () =>
-          selectEvaluatorAppleProvider(isReleaseMode: false, debugToken: '   '),
+      () => selectEvaluatorAppleProvider(isDebugMode: true, debugToken: '   '),
       throwsA(isA<StateError>()),
     );
   });
 
-  test('iOS release rejects the debug provider', () {
+  test('iOS profile mode rejects the debug provider', () {
     expect(
       () => selectEvaluatorAppleProvider(
-        isReleaseMode: true,
+        isDebugMode: false,
         debugToken: '11111111-1111-1111-1111-111111111111',
       ),
       throwsA(isA<StateError>()),
