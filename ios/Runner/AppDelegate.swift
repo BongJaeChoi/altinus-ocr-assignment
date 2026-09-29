@@ -12,5 +12,13 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    NativeOcrHostApiSetup.setUp(
+      binaryMessenger: engineBridge.applicationRegistrar.messenger(),
+      api: MlKitNativeOcrHostApi()
+    )
+    AppSettingsHostApiSetup.setUp(
+      binaryMessenger: engineBridge.applicationRegistrar.messenger(),
+      api: IosAppSettingsHostApi()
+    )
   }
 }
