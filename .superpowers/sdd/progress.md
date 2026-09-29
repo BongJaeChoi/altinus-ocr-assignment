@@ -33,9 +33,22 @@
 | 3. Generated Firebase configuration | complete | `711fe83..de01922` | Approved; exact remote inventory, generated identities, focused test, native locks, Android/iOS builds verified |
 | 4. Opt-in Firebase/App Check bootstrap | complete | `HEAD` | RED/GREEN bootstrap ordering, default-local composition, and full Flutter regression verified |
 | 5. Android registered signing identity | complete | `072b4ff..HEAD` | Follow-up verified: partial/invalid secrets and malformed defines fail closed; every enabled Android build type uses the registered certificate |
-| 6. Apple signing and App Check gate | pending | — | Requires action-time Team authorization before mutation |
-| 7. Live cloud/device/final evidence | pending | — | — |
+| 6. Apple signing and App Check gate | superseded | — | Replaced by approved evaluator-delivery option B plan |
+| 7. Live cloud/device/final evidence | superseded | — | Replaced by approved evaluator-delivery option B plan |
+
+## Evaluator Cloud Bundle Plan
+
+- Plan: `docs/superpowers/plans/2026-09-29-evaluator-cloud-bundle.md`
+- Base: `d0e4dcf`
+
+| Task | Status | Commit | Review |
+| --- | --- | --- | --- |
+| 1. Cloud-first bootstrap and Apple debug guard | complete | `d0e4dcf..eb917e8` | Approved after profile-mode fail-closed fix; release binary token scan remains Task 4 |
+| 2. Bundled Android evaluation identity | pending | — | — |
+| 3. App Check and Firebase AI Logic remote setup | pending | — | Requires action-time confirmation before each console save |
+| 4. Live, clean-clone, release-containment, and handoff evidence | pending | — | — |
 
 ## Minor findings
 
 - Task 11: the generated mixed fixture/nonblank native smoke proves bridge execution, not Korean glyph rendering or Korean-character recognition. Task 12 must validate actual Korean characters independently on Android and iPhone hardware.
+- Evaluator Cloud Task 1: the ignored first review package duplicated the tracked iOS debug token before the controller moved it out of the worktree; future review packages containing credential-source diffs must be redacted before dispatch. The implementer report's original “outside release” sentence is stale but explicitly superseded by its appended debug-only fix evidence.
