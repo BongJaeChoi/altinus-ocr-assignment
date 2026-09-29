@@ -63,7 +63,9 @@ OcrScreen (immutable UI)
 | `flutter build ios --release --no-codesign` (현재 한글 상위 경로) | BLOCKED/FAIL — SwiftPM이 percent-encoded Firebase package 경로의 `pubspec.yaml`을 찾지 못함; 아래 ASCII 경로 검증 사용 |
 | Firebase live cloud / native smoke / 실기기 matrix | BLOCKED — 승인된 Firebase 프로젝트와 Android/iPhone 하드웨어 없음 |
 
-원본 작업 경로의 한글 상위 디렉터리는 Flutter analyzer LSP framing과 Xcode SwiftPM percent-encoding을 깨뜨립니다. 소스를 변경하거나 Xcode를 우회 수정하지 않고, **ASCII 전용 임시 clone**에서 같은 Flutter SDK로 분석·테스트·Android/iOS build를 실행합니다. 이 저장소의 최종 clean-clone 실행 결과는 다음 갱신에서 이 문서와 `.superpowers/sdd/task-13-report.md`에 기록됩니다.
+원본 작업 경로의 한글 상위 디렉터리는 Flutter analyzer LSP framing과 Xcode SwiftPM percent-encoding을 깨뜨립니다. 소스를 변경하거나 Xcode를 우회 수정하지 않고, **ASCII 전용 임시 clone**에서 같은 Flutter SDK로 분석·테스트·Android/iOS build를 실행합니다.
+
+첫 README 커밋 `766f8adcec2c4d8811c23a333cc68962afaa0d1e`을 `/private/tmp/altinus-task13-clone.hTu5St/altinus-ocr`에 새로 clone해 다음을 확인했습니다: `flutter pub get`, Pigeon 재생성 후 `git diff --exit-code`, `flutter analyze`(4.3초), `flutter test`(200 tests), Android debug build, iOS debug no-codesign build 모두 PASS. 관찰한 universal debug APK는 **189M**, iOS debug `Runner.app` 디렉터리는 **171M**였습니다. iOS build 뒤 Xcode가 생성한 untracked SwiftPM workspace metadata 두 항목은 있었지만, 추적 파일 diff는 없었습니다. 같은 ASCII clone의 release도 Android universal APK **84.5MB**, iOS `Runner.app` **68.8MB**로 PASS했습니다. 이는 archive/store 크기나 실기기 실행 증명이 아닙니다.
 
 개발/재현 명령은 다음과 같습니다.
 
