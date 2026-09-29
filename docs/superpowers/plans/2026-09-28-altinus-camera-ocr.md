@@ -601,9 +601,40 @@ Open `Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("packag
 
 - [ ] **Step 4: Verify and commit**
 
+The app remains compiled for Java 17 (`sourceCompatibility`, `targetCompatibility`, and Kotlin `jvmTarget`). Run the app-owned unit/lint gate under JDK 17. The unqualified aggregate also executes pinned CameraX Robolectric SDK 36 tests, which require JDK 21; run that gate from a fresh ASCII-only copy with a temporary unpacked JDK 21 selected only through command-local `JAVA_HOME`. Do not install, replace, or reconfigure the system JDK.
+
 ```bash
 flutter build apk --debug
-(cd android && ./gradlew testDebugUnitTest lintDebug)
+
+task9_jdk17_home=$(/usr/libexec/java_home -v 17)
+(cd android && JAVA_HOME="$task9_jdk17_home" ./gradlew :app:testDebugUnitTest :app:lintDebug)
+
+# Download and unpack a pinned JDK 21 under /tmp; leave the system JDK unchanged.
+task9_jdk21_dir=$(mktemp -d /tmp/altinus-task9-jdk21.XXXXXX)
+case "$(uname -m)" in
+  arm64) task9_jdk21_arch=aarch64 ;;
+  x86_64) task9_jdk21_arch=x64 ;;
+  *) echo 'Unsupported macOS architecture' >&2; exit 1 ;;
+esac
+curl --fail --location \
+  "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_${task9_jdk21_arch}_mac_hotspot_21.0.12.1_1.tar.gz" \
+  --output "$task9_jdk21_dir/jdk21.tar.gz"
+tar -xzf "$task9_jdk21_dir/jdk21.tar.gz" -C "$task9_jdk21_dir"
+task9_jdk21_home=$(find "$task9_jdk21_dir" -type d -path '*/Contents/Home' -print -quit)
+test -x "$task9_jdk21_home/bin/java"
+"$task9_jdk21_home/bin/java" -version 2>&1 | grep 'version "21'
+
+task9_verify_dir=$(mktemp -d /tmp/altinus-task9-verify.XXXXXX)
+rsync -a \
+  --exclude='.git' \
+  --exclude='.dart_tool' \
+  --exclude='build' \
+  --exclude='android/.gradle' \
+  ./ "$task9_verify_dir/"
+(cd "$task9_verify_dir" && flutter pub get)
+(cd "$task9_verify_dir/android" && \
+  JAVA_HOME="$task9_jdk21_home" ./gradlew testDebugUnitTest lintDebug)
+
 git add android
 git commit -m 'feat(android): bridge bundled Korean OCR' -m 'What:
 - Implement Pigeon hosts with bundled Korean ML Kit and app settings.

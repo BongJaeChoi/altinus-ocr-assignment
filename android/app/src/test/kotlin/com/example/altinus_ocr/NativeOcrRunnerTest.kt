@@ -153,6 +153,23 @@ class NativeOcrRunnerTest {
     }
 
     @Test
+    fun `synchronous completion wins when process throws afterward`() {
+        val session =
+            FakeRecognizerSession(
+                completeSynchronouslyWith = Result.success("first"),
+                processFailureAfterSynchronousCompletion =
+                    IllegalStateException("late process failure"),
+            )
+        val replies = mutableListOf<Result<NativeOcrReply>>()
+
+        runnerWith(session).recognize("capture.jpg", replies::add)
+
+        assertEquals(1, session.closeCalls)
+        assertEquals(1, replies.size)
+        assertEquals("first", replies.single().getOrThrow().text)
+    }
+
+    @Test
     fun `task result access exception becomes a failure`() {
         val result =
             completedTextResult(
@@ -186,6 +203,7 @@ class NativeOcrRunnerTest {
         private val processFailure: Exception? = null,
         private val closeFailure: Exception? = null,
         private val completeSynchronouslyWith: Result<String>? = null,
+        private val processFailureAfterSynchronousCompletion: Exception? = null,
     ) : NativeOcrRecognizerSession<FakeImage> {
         private var completion: ((Result<String>) -> Unit)? = null
         var closeCalls = 0
@@ -195,6 +213,7 @@ class NativeOcrRunnerTest {
             processFailure?.let { throw it }
             completion = callback
             completeSynchronouslyWith?.let(callback)
+            processFailureAfterSynchronousCompletion?.let { throw it }
         }
 
         override fun close() {
