@@ -7,6 +7,10 @@ import 'package:altinus_ocr/features/ocr/domain/ocr_ports.dart';
 import 'package:altinus_ocr/features/ocr/domain/ocr_result.dart';
 
 final class ControllableCloudOcrService implements CloudOcrService {
+  ControllableCloudOcrService({this.configurationPending = false});
+
+  @override
+  final bool configurationPending;
   final List<String> paths = [];
   final List<Completer<OcrResult>> requests = [];
 

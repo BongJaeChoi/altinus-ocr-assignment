@@ -99,4 +99,57 @@ void main() {
       expect(find.text('늦은 클라우드 결과'), findsNothing);
     },
   );
+
+  testWidgets(
+    'pending cloud configuration automatically completes with local OCR',
+    (tester) async {
+      final camera = ControllableCameraRepository(
+        permission: CameraPermissionState.granted,
+      );
+      final cloud = ControllableCloudOcrService(configurationPending: true);
+      final local = ControllableLocalOcrService();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            cameraRepositoryProvider.overrideWithValue(camera),
+            disclosureStoreProvider.overrideWithValue(
+              MemoryDisclosureStore(accepted: true),
+            ),
+            cloudOcrServiceProvider.overrideWithValue(cloud),
+            localOcrServiceProvider.overrideWithValue(local),
+            imagePreparerProvider.overrideWithValue(
+              ControllableImagePreparer(),
+            ),
+            transactionFilesProvider.overrideWithValue(
+              RecordingTransactionFiles(),
+            ),
+            appSettingsLauncherProvider.overrideWithValue(
+              RecordingAppSettingsLauncher(),
+            ),
+            ocrNowProvider.overrideWithValue(
+              () => DateTime.utc(2026, 9, 29, 12),
+            ),
+          ],
+          child: const AltinusOcrApp(),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      await tester.tap(find.byKey(const ValueKey('capture')));
+      await tester.pump();
+      camera.completeCapture(0, '/temporary/pending-config.jpg');
+      await tester.pump();
+      await tester.pump();
+      cloud.fail(0, OcrFailure.of(OcrFailureKind.configuration));
+      await tester.pump();
+
+      expect(local.requests, hasLength(1));
+      expect(find.byKey(const ValueKey('use-local')), findsNothing);
+      local.complete(0, OcrResult.textDetected('자동 기기 인식'));
+      await tester.pump();
+      expect(find.text('자동 기기 인식'), findsOneWidget);
+    },
+  );
 }

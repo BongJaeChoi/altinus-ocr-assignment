@@ -239,6 +239,42 @@ void main() {
       expect(find.byKey(const ValueKey('recapture')), findsOneWidget);
     });
 
+    testWidgets(
+      'pending cloud configuration reaches a local result without a recovery tap',
+      (tester) async {
+        final harness = await _pumpAtPreview(
+          tester,
+          cloudConfigurationPending: true,
+        );
+        await _beginCloudRecognition(tester, harness);
+
+        harness.cloud.fail(0, OcrFailure.of(OcrFailureKind.configuration));
+        await tester.pump();
+
+        expect(harness.local.requests, hasLength(1));
+        expect(find.byKey(const ValueKey('use-local')), findsNothing);
+        expect(find.text(OcrCopy.cloudRecovery), findsNothing);
+
+        harness.local.complete(0, OcrResult.textDetected('기기 인식 결과'));
+        await tester.pump();
+        expect(find.text('기기 인식 결과'), findsOneWidget);
+      },
+    );
+
+    testWidgets('configured cloud configuration failure remains recoverable', (
+      tester,
+    ) async {
+      final harness = await _pumpAtPreview(tester);
+      await _beginCloudRecognition(tester, harness);
+
+      harness.cloud.fail(0, OcrFailure.of(OcrFailureKind.configuration));
+      await tester.pump();
+
+      expect(harness.local.requests, isEmpty);
+      expect(find.byKey(const ValueKey('use-local')), findsOneWidget);
+      expect(find.text(OcrCopy.cloudRecovery), findsOneWidget);
+    });
+
     testWidgets('technical failure details are never rendered', (tester) async {
       await _pump(
         tester,
@@ -377,12 +413,14 @@ Future<_Harness> _pump(
   Object? filesCleanupError,
   bool holdInitialize = false,
   double textScaleFactor = 1,
+  bool cloudConfigurationPending = false,
 }) async {
   final harness = _Harness(
     accepted: accepted,
     permission: permission,
     retryDelay: retryDelay,
     filesCleanupError: filesCleanupError,
+    cloudConfigurationPending: cloudConfigurationPending,
   );
   harness.camera.holdInitialize = holdInitialize;
   await tester.pumpWidget(
@@ -418,12 +456,14 @@ Future<_Harness> _pumpAtPreview(
   WidgetTester tester, {
   Duration Function(int)? retryDelay,
   double textScaleFactor = 1,
+  bool cloudConfigurationPending = false,
 }) async {
   final harness = await _pump(
     tester,
     accepted: true,
     retryDelay: retryDelay,
     textScaleFactor: textScaleFactor,
+    cloudConfigurationPending: cloudConfigurationPending,
   );
   expect(find.byKey(const ValueKey('capture')), findsOneWidget);
   return harness;
@@ -448,9 +488,12 @@ final class _Harness {
     required CameraPermissionState permission,
     required Duration Function(int)? retryDelay,
     required Object? filesCleanupError,
+    bool cloudConfigurationPending = false,
   }) : disclosure = MemoryDisclosureStore(accepted: accepted),
        camera = ControllableCameraRepository(permission: permission),
-       cloud = ControllableCloudOcrService(),
+       cloud = ControllableCloudOcrService(
+         configurationPending: cloudConfigurationPending,
+       ),
        local = ControllableLocalOcrService(),
        preparer = ControllableImagePreparer(),
        files = RecordingTransactionFiles(

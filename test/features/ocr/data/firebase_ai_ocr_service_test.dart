@@ -345,6 +345,9 @@ void main() {
 }
 
 final class CapturingGateway implements FirebaseModelGateway {
+  @override
+  bool get configurationPending => false;
+
   final List<FirebaseModelRequest> requests = [];
   FirebaseModelResponse response = const FirebaseModelResponse(
     text: '{"status":"textDetected","text":"value"}',

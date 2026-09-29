@@ -36,10 +36,9 @@ void main() {
       container.read(cameraRepositoryProvider),
       isA<CameraPluginRepository>(),
     );
-    expect(
-      container.read(cloudOcrServiceProvider),
-      isA<FirebaseAiOcrService>(),
-    );
+    final cloudService = container.read(cloudOcrServiceProvider);
+    expect(cloudService, isA<FirebaseAiOcrService>());
+    expect(cloudService.configurationPending, isTrue);
     expect(
       container.read(firebaseModelGatewayProvider),
       isA<FirebaseConfigurationPendingGateway>(),
@@ -60,6 +59,7 @@ void main() {
     'pending Firebase gateway reports typed configuration failure',
     () async {
       const gateway = FirebaseConfigurationPendingGateway();
+      expect(gateway.configurationPending, isTrue);
 
       await expectLater(
         gateway.generate(

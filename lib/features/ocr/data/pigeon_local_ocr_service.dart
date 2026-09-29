@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+
 import '../../../src/generated/platform_apis.g.dart';
 import '../domain/ocr_failure.dart';
 import '../domain/ocr_ports.dart';
@@ -29,13 +31,20 @@ final class PigeonLocalOcrService implements LocalOcrService {
     final NativeOcrReply reply;
     try {
       reply = await _gateway.recognizeKorean(imagePath);
+    } on PlatformException catch (error) {
+      throw OcrFailure.of(switch (error.code) {
+        'INVALID_IMAGE_PATH' ||
+        'INPUT_IMAGE_FAILED' => OcrFailureKind.invalidInput,
+        'OCR_FAILED' => OcrFailureKind.recognizer,
+        _ => OcrFailureKind.bridge,
+      });
     } on Object {
       throw OcrFailure.of(OcrFailureKind.bridge);
     }
 
     return switch (reply.status) {
       NativeOcrStatus.textDetected => _detectedText(reply.text),
-      NativeOcrStatus.noReadableText => const OcrResult.noReadableText(),
+      NativeOcrStatus.noReadableText => _noReadableText(reply.text),
     };
   }
 
@@ -44,5 +53,12 @@ final class PigeonLocalOcrService implements LocalOcrService {
       throw OcrFailure.invalidResponse();
     }
     return OcrResult.textDetected(text);
+  }
+
+  OcrResult _noReadableText(String? text) {
+    if (text != null) {
+      throw OcrFailure.invalidResponse();
+    }
+    return const OcrResult.noReadableText();
   }
 }

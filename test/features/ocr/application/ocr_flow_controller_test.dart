@@ -716,6 +716,46 @@ void main() {
       });
     });
 
+    test('pending cloud configuration continues directly with local OCR', () {
+      fakeAsync((async) {
+        final harness = _Harness(async, cloudConfigurationPending: true)
+          ..startCloud(async);
+
+        harness.cloud.fail(0, OcrFailure.of(OcrFailureKind.configuration));
+        async.flushMicrotasks();
+
+        expect(harness.state, isA<RecognizingLocal>());
+        expect(harness.local.paths, ['/owned/capture-1.jpg']);
+        harness.local.complete(0, OcrResult.textDetected('local result'));
+        async.flushMicrotasks();
+
+        final success = harness.state as OcrSuccess;
+        expect(success.text, 'local result');
+        expect(success.engine, OcrEngine.local);
+        expect(harness.cloud.requests, hasLength(1));
+        harness.dispose(async);
+      });
+    });
+
+    for (final failureKind in <OcrFailureKind>[
+      OcrFailureKind.configuration,
+      OcrFailureKind.service,
+    ]) {
+      test('configured cloud $failureKind keeps recovery policy', () {
+        fakeAsync((async) {
+          final harness = _Harness(async)..startCloud(async);
+
+          harness.cloud.fail(0, OcrFailure.of(failureKind));
+          async.flushMicrotasks();
+
+          final recovery = harness.state as CloudRecovery;
+          expect(recovery.failure.kind, failureKind);
+          expect(harness.local.paths, isEmpty);
+          harness.dispose(async);
+        });
+      });
+    }
+
     test('retry preserves the original cumulative 60 second deadline', () {
       fakeAsync((async) {
         final harness = _Harness(async)..startCloud(async);
@@ -1572,6 +1612,7 @@ final class _Harness {
     Object? cleanupError,
     Object? cleanupOrphansError,
     Object? settingsError,
+    bool cloudConfigurationPending = false,
   }) : camera = ControllableCameraRepository(
          permission: cameraPermission,
          initializeError: cameraInitializeError,
@@ -1594,6 +1635,9 @@ final class _Harness {
          cleanupOrphansError: cleanupOrphansError,
        ),
        settings = RecordingAppSettingsLauncher()..openError = settingsError {
+    cloud = ControllableCloudOcrService(
+      configurationPending: cloudConfigurationPending,
+    );
     final clock = async.getClock(DateTime.utc(2026, 9, 28, 12));
     container = ProviderContainer(
       overrides: [
@@ -1618,7 +1662,7 @@ final class _Harness {
   }
 
   final ControllableCameraRepository camera;
-  final ControllableCloudOcrService cloud = ControllableCloudOcrService();
+  late final ControllableCloudOcrService cloud;
   final ControllableLocalOcrService local = ControllableLocalOcrService();
   final MemoryDisclosureStore disclosure;
   final ControllableImagePreparer preparer;

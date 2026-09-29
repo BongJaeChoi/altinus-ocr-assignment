@@ -3,6 +3,7 @@ import 'package:altinus_ocr/features/ocr/data/pigeon_local_ocr_service.dart';
 import 'package:altinus_ocr/features/ocr/domain/ocr_failure.dart';
 import 'package:altinus_ocr/features/ocr/domain/ocr_result.dart';
 import 'package:altinus_ocr/src/generated/platform_apis.g.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -79,6 +80,54 @@ void main() {
       );
     });
 
+    for (final contradictoryText in <String>['', 'unexpected text']) {
+      test(
+        'rejects no-readable-text with a non-null text field: $contradictoryText',
+        () async {
+          final service = PigeonLocalOcrService(
+            gateway: _FakeNativeOcrGateway(
+              reply: NativeOcrReply(
+                status: NativeOcrStatus.noReadableText,
+                text: contradictoryText,
+              ),
+            ),
+          );
+
+          await expectLater(
+            service.recognize('/tmp/contradiction.jpg'),
+            throwsFailure(OcrFailureKind.invalidResponse),
+          );
+        },
+      );
+    }
+
+    for (final testCase in <(String, OcrFailureKind)>[
+      ('INVALID_IMAGE_PATH', OcrFailureKind.invalidInput),
+      ('INPUT_IMAGE_FAILED', OcrFailureKind.invalidInput),
+      ('OCR_FAILED', OcrFailureKind.recognizer),
+      ('channel-error', OcrFailureKind.bridge),
+      ('null-error', OcrFailureKind.bridge),
+      ('UNRECOGNIZED_NATIVE_CODE', OcrFailureKind.bridge),
+    ]) {
+      test('maps PlatformException ${testCase.$1} by code only', () async {
+        final service = PigeonLocalOcrService(
+          gateway: _FakeNativeOcrGateway(
+            error: PlatformException(
+              code: testCase.$1,
+              message: testCase.$1 == 'UNRECOGNIZED_NATIVE_CODE'
+                  ? 'OCR_FAILED INVALID_IMAGE_PATH'
+                  : 'misleading raw native message',
+            ),
+          ),
+        );
+
+        await expectLater(
+          service.recognize('/tmp/capture.jpg'),
+          throwsFailure(testCase.$2),
+        );
+      });
+    }
+
     test('maps a gateway exception to a bridge failure', () async {
       final service = PigeonLocalOcrService(
         gateway: _FakeNativeOcrGateway(error: StateError('bridge unavailable')),
@@ -109,6 +158,9 @@ void main() {
     }
   });
 }
+
+Matcher throwsFailure(OcrFailureKind kind) =>
+    throwsA(isA<OcrFailure>().having((failure) => failure.kind, 'kind', kind));
 
 final class _FakeNativeOcrGateway implements NativeOcrGateway {
   _FakeNativeOcrGateway({this.reply, this.error});

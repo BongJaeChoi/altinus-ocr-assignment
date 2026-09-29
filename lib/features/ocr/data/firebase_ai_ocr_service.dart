@@ -12,6 +12,8 @@ import '../domain/ocr_ports.dart';
 import '../domain/ocr_result.dart';
 
 abstract interface class FirebaseModelGateway {
+  bool get configurationPending;
+
   Future<FirebaseModelResponse> generate(FirebaseModelRequest request);
 }
 
@@ -46,6 +48,9 @@ final class FirebaseConfigurationPendingGateway
   const FirebaseConfigurationPendingGateway();
 
   @override
+  bool get configurationPending => true;
+
+  @override
   Future<FirebaseModelResponse> generate(FirebaseModelRequest request) =>
       Future<FirebaseModelResponse>.error(
         OcrFailure.of(OcrFailureKind.configuration),
@@ -76,6 +81,9 @@ Otherwise return status "noReadableText" and omit "text" or set it to null or an
 ''';
 
   final FirebaseGenerateForTest? generateForTest;
+
+  @override
+  bool get configurationPending => false;
 
   @override
   Future<FirebaseModelResponse> generate(FirebaseModelRequest request) async {
@@ -137,6 +145,9 @@ final class FirebaseAiOcrService implements CloudOcrService {
 
   final FirebaseModelGateway gateway;
   final OcrImageFileReader _readImageFile;
+
+  @override
+  bool get configurationPending => gateway.configurationPending;
 
   @override
   Future<OcrResult> recognize(String imagePath) async {
