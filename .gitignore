@@ -23,3 +23,6 @@ artifacts/private/
 *.jks
 *.p12
 *.mobileprovision
+!android/key.properties
+!android/evaluator-signing/
+!android/evaluator-signing/artinus-ocr-upload.jks

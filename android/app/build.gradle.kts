@@ -59,7 +59,16 @@ val dartDefines =
     } catch (_: IllegalArgumentException) {
         throw GradleException("ARTINUS build configuration contains invalid dart defines")
     }
-val cloudEvidenceEnabled = dartDefines.contains("ARTINUS_CLOUD_EVIDENCE=true")
+val cloudEvidenceValues =
+    dartDefines
+        .filter { it.startsWith("ARTINUS_CLOUD_EVIDENCE=") }
+        .map { it.substringAfter('=') }
+if (cloudEvidenceValues.size > 1 ||
+    cloudEvidenceValues.any { it != "true" && it != "false" }
+) {
+    throw GradleException("ARTINUS cloud configuration is invalid")
+}
+val cloudEvidenceEnabled = cloudEvidenceValues.singleOrNull() != "false"
 if (cloudEvidenceEnabled && !releaseSigningConfigured) {
     throw GradleException(
         "ARTINUS cloud evidence requires the registered release signing identity",
