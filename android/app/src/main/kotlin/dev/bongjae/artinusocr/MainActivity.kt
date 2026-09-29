@@ -1,4 +1,4 @@
-package com.example.altinus_ocr
+package dev.bongjae.artinusocr
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine

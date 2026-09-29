@@ -1,4 +1,4 @@
-package com.example.altinus_ocr
+package dev.bongjae.artinusocr
 
 import java.io.File
 import java.nio.file.Files

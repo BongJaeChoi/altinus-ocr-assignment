@@ -1,4 +1,4 @@
-package com.example.altinus_ocr
+package dev.bongjae.artinusocr
 
 internal class HostRegistrationLifecycle<Target>(
     private val onRegister: (Target) -> Unit,

@@ -1,4 +1,4 @@
-package com.example.altinus_ocr
+package dev.bongjae.artinusocr
 
 import android.content.Context
 import android.net.Uri

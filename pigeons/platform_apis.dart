@@ -4,8 +4,8 @@ import 'package:pigeon/pigeon.dart';
   PigeonOptions(
     dartOut: 'lib/src/generated/platform_apis.g.dart',
     kotlinOut:
-        'android/app/src/main/kotlin/com/example/altinus_ocr/PlatformApis.g.kt',
-    kotlinOptions: KotlinOptions(package: 'com.example.altinus_ocr'),
+        'android/app/src/main/kotlin/dev/bongjae/artinusocr/PlatformApis.g.kt',
+    kotlinOptions: KotlinOptions(package: 'dev.bongjae.artinusocr'),
     swiftOut: 'ios/Runner/PlatformApis.g.swift',
   ),
 )
