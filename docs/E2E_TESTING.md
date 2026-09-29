@@ -15,6 +15,8 @@ Use deterministic framework integration tests for repeatability and real-device 
 
 ARTEMIS is an Android UI automation system with CLI, MCP, and Python SDK surfaces. It does not currently establish native iOS coverage.
 
+Iterate on an Android device during development. Final evidence must include a clean-clone run with fixed inputs, cloud-first and local-fallback paths, Pigeon behavior, frame-time, memory, and heat observations. Borrowed iPhone evidence is required for the final iOS real-device proof.
+
 ### Local setup
 
 ```bash
@@ -47,7 +49,7 @@ uv run artemis run \
   --profile flash
 ```
 
-Minimum Android scenarios:
+Minimum Android scenarios (the cloud choice appears at 10 seconds, shares a cumulative 60-second budget, and permits at most two cloud attempts):
 
 - permission grant and happy path;
 - first denial, permanent denial/settings recovery;

@@ -62,7 +62,7 @@ Lifecycle events can interrupt any camera-owned state. Capture jobs need identit
 
 Map low-level failures into user-relevant categories:
 
-- permission: not requested, denied, permanently denied/restricted;
+- permission: not requested, `denied`, `restricted`, `permanentlyDenied`;
 - camera: absent, busy, initialization failed, capture failed, interrupted by lifecycle;
 - input: empty, unreadable, unsupported, rotated, oversized, temporary file missing;
 - OCR: no text, engine unavailable, timeout/failure;
@@ -72,21 +72,21 @@ Empty text is a valid OCR outcome and must not be mislabeled as an engine crash.
 
 ## Current environment facts
 
-- Flutter `3.41.6` stable and Dart `3.11.4` are available locally.
+- Flutter `3.47.5` stable and Dart `3.13.4` are the committed implementation versions.
 - Xcode `26.1.1`, CocoaPods `1.16.2`, Java 17, and Android SDKs are available.
 - No Android device was connected during bootstrap analysis.
 - Registered iPhones were unavailable during bootstrap analysis.
-- The implementation stack is not yet committed; choosing Flutter is a working preference based on the installed toolchain, not an assignment mandate.
+- Flutter is the committed implementation stack.
 
 Re-check environment/device facts immediately before implementation and E2E; they are time-sensitive.
 
-## Decisions still required
+## Committed implementation decisions
 
-- Flutter versus React Native, with time/risk/dependency rationale.
-- OCR implementation and offline/network/privacy behavior.
-- State-management approach proportional to the small scope.
-- Minimum supported OS versions and exact test-device matrix.
-- Image preprocessing policy and evidence that it improves the chosen test set.
+- Use `firebase_ai` cloud-first OCR, with official Korean ML Kit through a Pigeon fallback.
+- Use manual Riverpod `NotifierProvider`; do not use code generation.
+- Give the user a 10-second choice, with a cumulative 60-second cloud budget and at most two cloud attempts.
+- Iterate on an Android device; borrow an iPhone for final real-device proof.
+- Require clean-clone, fixed-input, cloud/local, Pigeon, frame-time, memory, and heat evidence.
 
 ## Done evidence ledger
 

@@ -2,7 +2,7 @@
 
 ## 1. Objective
 
-Deliver a small Flutter or React Native application that demonstrates reliable mobile camera capture and OCR across iOS and Android. This repository will choose one stack during implementation; the choice and tradeoffs must be explained in the final README.
+Deliver a small Flutter 3.47.5 / Dart 3.13.4 application that demonstrates reliable mobile camera capture and OCR across iOS and Android. The result display is display-only; editing and copying are out of scope.
 
 ## 2. Source requirements
 
@@ -27,7 +27,7 @@ Submission context from the document-pass email: GitHub repository URL due by `2
 3. A responsive camera preview appears.
 4. User captures a still image once.
 5. UI immediately communicates processing state without freezing interaction/rendering.
-6. OCR finishes and recognized text is displayed in a readable, selectable form.
+6. OCR finishes and recognized text is displayed in a readable, non-editable form.
 7. User can retry capture/OCR after success or failure.
 
 ## 4. Functional acceptance criteria
@@ -35,7 +35,7 @@ Submission context from the document-pass email: GitHub repository URL due by `2
 ### Camera and permissions
 
 - First-run permission request has clear rationale and outcome states.
-- Denied/restricted/permanently denied permission produces a recoverable UI; settings guidance is shown when appropriate.
+- `denied`, `restricted`, or `permanentlyDenied` permission produces a recoverable UI; settings guidance is shown when appropriate.
 - No-camera/unavailable-camera and initialization failure are visible and retryable.
 - Preview obeys orientation/aspect ratio and does not stretch or obscure critical controls.
 - Capture is debounced so repeated taps cannot create overlapping OCR jobs.
@@ -52,7 +52,7 @@ Submission context from the document-pass email: GitHub repository URL due by `2
 ### Result and recovery
 
 - Loading, success, empty, and error states are visually distinct.
-- Recognized text is readable and selectable/copyable if the chosen framework supports it without disproportionate complexity.
+- Recognized text is displayed read-only; editing and copying are not required.
 - Retry does not require force-closing the app.
 - Background/foreground transitions do not leave the camera or UI in a broken state.
 
