@@ -41,6 +41,227 @@ void main() {
       });
     });
 
+    test(
+      'recapture disposes a pending initialization before one replacement',
+      () {
+        fakeAsync((async) {
+          final harness = _Harness(async);
+          harness.camera.holdInitialize = true;
+          unawaited(harness.controller.start());
+          async.flushMicrotasks();
+          expect(harness.state, isA<CameraInitializing>());
+
+          unawaited(harness.controller.recapture());
+          async.flushMicrotasks();
+
+          expect(harness.camera.disposeCount, 1);
+          expect(harness.camera.initializeCount, 2);
+          expect(harness.camera.maxConcurrentInitializationCount, 1);
+          expect(harness.camera.activeInitializationCount, 1);
+          expect(harness.camera.liveSessionCount, 0);
+
+          harness.camera.completeInitialize(1);
+          async.flushMicrotasks();
+          expect(harness.state, isA<PreviewReady>());
+          expect(harness.camera.liveSessionCount, 1);
+          harness.dispose(async);
+        });
+      },
+    );
+
+    test(
+      'a disposed stale initialization cannot write the replacement state',
+      () {
+        fakeAsync((async) {
+          final harness = _Harness(async);
+          harness.camera.holdInitialize = true;
+          unawaited(harness.controller.start());
+          async.flushMicrotasks();
+          unawaited(harness.controller.recapture());
+          async.flushMicrotasks();
+
+          expect(harness.camera.wasInitializeCancelled(0), isTrue);
+          harness.camera.completeInitialize(1);
+          async.flushMicrotasks();
+
+          expect(harness.state, isA<PreviewReady>());
+          expect(harness.camera.liveSessionCount, 1);
+          harness.dispose(async);
+        });
+      },
+    );
+
+    test('unaccepted recapture tears down pending initialization before disclosure', () {
+      fakeAsync((async) {
+        final harness = _Harness(async);
+        harness.camera.holdInitialize = true;
+        unawaited(harness.controller.start());
+        async.flushMicrotasks();
+
+        harness.disclosure.accepted = false;
+        unawaited(harness.controller.recapture());
+        async.flushMicrotasks();
+
+        expect(harness.camera.disposeCount, 1);
+        expect(harness.camera.wasInitializeCancelled(0), isTrue);
+        expect(harness.camera.initializeCount, 1);
+        expect(harness.camera.liveSessionCount, 0);
+        expect(harness.state, isA<DisclosureRequired>());
+        harness.dispose(async);
+      });
+    });
+
+    test('disclosure read failure tears down pending initialization before recovery', () {
+      fakeAsync((async) {
+        final harness = _Harness(async);
+        harness.camera.holdInitialize = true;
+        unawaited(harness.controller.start());
+        async.flushMicrotasks();
+
+        harness.disclosure.hasAcceptedError = StateError('private detail');
+        unawaited(harness.controller.recapture());
+        async.flushMicrotasks();
+
+        expect(harness.camera.disposeCount, 1);
+        expect(harness.camera.wasInitializeCancelled(0), isTrue);
+        expect(harness.camera.initializeCount, 1);
+        expect(harness.camera.liveSessionCount, 0);
+        expect(harness.state, isA<RecoverableError>());
+        harness.dispose(async);
+      });
+    });
+
+    test('rapid recaptures share teardown and only the latest initializes', () {
+      fakeAsync((async) {
+        final harness = _Harness(async);
+        harness.camera.holdInitialize = true;
+        unawaited(harness.controller.start());
+        async.flushMicrotasks();
+        harness.camera.holdDispose = true;
+
+        unawaited(harness.controller.recapture());
+        async.flushMicrotasks();
+        unawaited(harness.controller.recapture());
+        async.flushMicrotasks();
+
+        expect(harness.camera.disposeCount, 1);
+        expect(harness.camera.initializeCount, 1);
+        harness.camera.completeDispose(0);
+        async.flushMicrotasks();
+
+        expect(harness.camera.initializeCount, 2);
+        expect(harness.camera.maxConcurrentInitializationCount, 1);
+        harness.camera.completeInitialize(1);
+        async.flushMicrotasks();
+
+        expect(harness.state, isA<PreviewReady>());
+        expect(harness.camera.liveSessionCount, 1);
+        harness.dispose(async);
+      });
+    });
+
+    test('failed inactive teardown stays retryable without leaked errors', () {
+      fakeAsync((async) {
+        final harness = _Harness(async)..start(async);
+        harness.camera.disposeError = StateError('private detail');
+
+        unawaited(harness.controller.onInactive());
+        async.flushMicrotasks();
+        expect(harness.state, isA<RecoverableError>());
+        expect(harness.camera.disposeCount, 1);
+
+        harness.camera.disposeError = null;
+        unawaited(harness.controller.recapture());
+        async.flushMicrotasks();
+
+        expect(harness.camera.disposeCount, 2);
+        expect(harness.state, isA<PreviewReady>());
+        harness.dispose(async);
+      });
+    });
+
+    test(
+      'recapture rechecks accepted disclosure before returning to camera',
+      () {
+        fakeAsync((async) {
+          final harness = _Harness(
+            async,
+            disclosureAccepted: false,
+            cleanupOrphansError: StateError('initial cleanup failed'),
+          );
+
+          unawaited(harness.controller.start());
+          async.flushMicrotasks();
+          expect(harness.state, isA<RecoverableError>());
+
+          unawaited(harness.controller.recapture());
+          async.flushMicrotasks();
+
+          expect(harness.state, isA<DisclosureRequired>());
+          expect(harness.camera.initializeCount, 0);
+          expect(harness.disclosure.hasAcceptedCount, 1);
+          harness.dispose(async);
+        });
+      },
+    );
+
+    test('accepted recapture still returns to the ready preview', () {
+      fakeAsync((async) {
+        final harness = _Harness(async)..start(async);
+
+        unawaited(harness.controller.recapture());
+        async.flushMicrotasks();
+
+        expect(harness.state, isA<PreviewReady>());
+        expect(harness.disclosure.hasAcceptedCount, 2);
+        harness.dispose(async);
+      });
+    });
+
+    test('recapture disclosure read failure stays in a safe recovery', () {
+      fakeAsync((async) {
+        final harness = _Harness(
+          async,
+          cleanupOrphansError: StateError('initial cleanup failed'),
+        );
+
+        unawaited(harness.controller.start());
+        async.flushMicrotasks();
+        harness.disclosure.hasAcceptedError = StateError('private read detail');
+        unawaited(harness.controller.recapture());
+        async.flushMicrotasks();
+
+        expect(harness.state, isA<RecoverableError>());
+        expect(harness.camera.initializeCount, 0);
+        harness.dispose(async);
+      });
+    });
+
+    test('a stale recapture disclosure read cannot restore camera state', () {
+      fakeAsync((async) {
+        final harness = _Harness(
+          async,
+          cleanupOrphansError: StateError('initial cleanup failed'),
+        );
+
+        unawaited(harness.controller.start());
+        async.flushMicrotasks();
+        harness.disclosure.holdHasAccepted = true;
+        unawaited(harness.controller.recapture());
+        async.flushMicrotasks();
+        expect(harness.disclosure.pendingHasAccepted, hasLength(1));
+
+        unawaited(harness.controller.onInactive());
+        async.flushMicrotasks();
+        harness.disclosure.completeHasAccepted(0);
+        async.flushMicrotasks();
+
+        expect(harness.state, isA<RecoverableError>());
+        expect(harness.camera.initializeCount, 0);
+        harness.dispose(async);
+      });
+    });
+
     test('accepting disclosure persists it before initializing camera', () {
       fakeAsync((async) {
         final harness = _Harness(async, disclosureAccepted: false);

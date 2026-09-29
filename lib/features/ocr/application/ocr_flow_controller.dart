@@ -57,6 +57,7 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
   late _OwnedTransactionFiles _ownedFiles;
 
   int _cameraOperationId = 0;
+  Future<void>? _cameraTeardownFuture;
   bool _captureInFlight = false;
   bool _cameraReady = false;
   bool _cameraNeedsDispose = false;
@@ -253,6 +254,20 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
     _retainedCanonicalOwnerId = null;
     _invalidateAsyncWork();
     final operationId = _cameraOperationId;
+    if (!_cameraReady && _cameraNeedsDispose) {
+      try {
+        await _ensureCameraDisposed();
+      } catch (error) {
+        if (_ownsCameraOperation(operationId)) {
+          state = RecoverableError(failure: _domainFailure(error));
+        }
+        return;
+      }
+      if (!_ownsCameraOperation(operationId)) {
+        return;
+      }
+      _cameraNeedsDispose = false;
+    }
     final fileOwnerId = _activeFileOwnerId;
     _canonicalPath = null;
     try {
@@ -269,6 +284,21 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
       _activeFileOwnerId = null;
     }
     if (!_ownsCameraOperation(operationId)) {
+      return;
+    }
+    try {
+      final accepted = await _disclosure.hasAccepted();
+      if (!_ownsCameraOperation(operationId)) {
+        return;
+      }
+      if (!accepted) {
+        state = const DisclosureRequired();
+        return;
+      }
+    } catch (error) {
+      if (_ownsCameraOperation(operationId)) {
+        state = RecoverableError(failure: _domainFailure(error));
+      }
       return;
     }
     if (_cameraReady) {
@@ -311,14 +341,18 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
     _captureInFlight = false;
     _cameraReady = false;
     if (_cameraNeedsDispose) {
-      _cameraNeedsDispose = false;
       try {
-        await _camera.dispose();
+        await _ensureCameraDisposed();
       } catch (error) {
         if (needsPreview && _ownsCameraOperation(operationId)) {
           state = RecoverableError(failure: _domainFailure(error));
         }
+        return;
       }
+      if (!_ownsCameraOperation(operationId)) {
+        return;
+      }
+      _cameraNeedsDispose = false;
     }
   }
 
@@ -327,6 +361,19 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
       return;
     }
     _needsPreviewOnResume = false;
+    final operationId = _cameraOperationId;
+    final teardown = _cameraTeardownFuture;
+    if (teardown != null) {
+      try {
+        await teardown;
+      } catch (_) {
+        return;
+      }
+      if (!_ownsCameraOperation(operationId)) {
+        return;
+      }
+      _cameraNeedsDispose = false;
+    }
     await _initializeCamera();
   }
 
@@ -352,6 +399,21 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
         state = RecoverableError(failure: _domainFailure(error));
       }
     }
+  }
+
+  Future<void> _ensureCameraDisposed() {
+    final existing = _cameraTeardownFuture;
+    if (existing != null) {
+      return existing;
+    }
+    late final Future<void> teardown;
+    teardown = _camera.dispose().whenComplete(() {
+      if (identical(_cameraTeardownFuture, teardown)) {
+        _cameraTeardownFuture = null;
+      }
+    });
+    _cameraTeardownFuture = teardown;
+    return teardown;
   }
 
   Future<void> _prepareAndRecognize(
@@ -581,8 +643,7 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
     _invalidateAsyncWork();
     _ownedFiles.abandonAllProductions();
     if (_cameraNeedsDispose) {
-      _cameraNeedsDispose = false;
-      unawaited(_runContained(_camera.dispose));
+      unawaited(_runContained(_disposeCameraAtTerminal));
     }
     unawaited(_runContained(_cleanupAllOwnedPaths));
   }
@@ -595,6 +656,11 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
       _retainedCanonicalOwnerId = null;
       _canonicalPath = null;
     }
+  }
+
+  Future<void> _disposeCameraAtTerminal() async {
+    await _ensureCameraDisposed();
+    _cameraNeedsDispose = false;
   }
 
   Future<void> _runContained(Future<void> Function() operation) async {

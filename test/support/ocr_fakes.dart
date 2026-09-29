@@ -52,23 +52,58 @@ final class ControllableCameraRepository implements CameraRepository {
   ControllableCameraRepository({
     this.permission = CameraPermissionState.granted,
     this.flashSupported = true,
+    this.holdInitialize = false,
+    this.holdDispose = false,
     this.disposeError,
   });
 
   CameraPermissionState permission;
   bool flashSupported;
+  bool holdInitialize;
+  bool holdDispose;
   Object? disposeError;
   int initializeCount = 0;
+  int activeInitializationCount = 0;
+  int maxConcurrentInitializationCount = 0;
+  int liveSessionCount = 0;
   int captureCount = 0;
   int disposeCount = 0;
   final List<Completer<CapturedImage>> captures = [];
+  final List<_HeldInitialization> _pendingInitializations = [];
+  final List<Completer<void>> _pendingDisposals = [];
   final List<CameraFlashMode> flashModes = [];
 
   @override
   Future<CameraPermissionState> initialize() async {
     initializeCount += 1;
-    return permission;
+    activeInitializationCount += 1;
+    if (activeInitializationCount > maxConcurrentInitializationCount) {
+      maxConcurrentInitializationCount = activeInitializationCount;
+    }
+    _HeldInitialization? pending;
+    try {
+      if (holdInitialize) {
+        pending = _HeldInitialization();
+        _pendingInitializations.add(pending);
+        await pending.completer.future;
+      }
+      if (pending?.cancelled != true) {
+        liveSessionCount += 1;
+      }
+      return permission;
+    } finally {
+      activeInitializationCount -= 1;
+      pending?.settled.complete();
+    }
   }
+
+  void completeInitialize(int index) =>
+      _pendingInitializations[index].completer.complete();
+
+  bool wasInitializeCancelled(int index) =>
+      _pendingInitializations[index].cancelled;
+
+  void completeDispose(int index) => _pendingDisposals[index].complete();
 
   @override
   Future<CapturedImage> capture() {
@@ -100,7 +135,33 @@ final class ControllableCameraRepository implements CameraRepository {
     if (disposeError case final error?) {
       throw error;
     }
+    if (holdDispose) {
+      final pending = Completer<void>();
+      _pendingDisposals.add(pending);
+      await pending.future;
+    }
+    liveSessionCount = 0;
+    final pending = List<_HeldInitialization>.of(_pendingInitializations);
+    for (final initialization in pending) {
+      if (!initialization.settled.isCompleted) {
+        initialization.cancelled = true;
+        if (!initialization.completer.isCompleted) {
+          initialization.completer.complete();
+        }
+      }
+    }
+    await Future.wait<void>(
+      pending
+          .where((initialization) => !initialization.settled.isCompleted)
+          .map((initialization) => initialization.settled.future),
+    );
   }
+}
+
+final class _HeldInitialization {
+  final Completer<void> completer = Completer<void>();
+  final Completer<void> settled = Completer<void>();
+  bool cancelled = false;
 }
 
 final class MemoryDisclosureStore implements DisclosureStore {
