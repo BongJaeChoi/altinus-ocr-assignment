@@ -47,3 +47,8 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    implementation("com.google.mlkit:text-recognition-korean:16.0.1")
+    testImplementation("junit:junit:4.13.2")
+}
