@@ -44,7 +44,7 @@
 | Task | Status | Commit | Review |
 | --- | --- | --- | --- |
 | 1. Cloud-first bootstrap and Apple debug guard | complete | `d0e4dcf..eb917e8` | Approved after profile-mode fail-closed fix; release binary token scan remains Task 4 |
-| 2. Bundled Android evaluation identity | pending | — | — |
+| 2. Bundled Android evaluation identity | complete | `08bb4ff..6b4a7c1` | Approved; root independently verified byte identity, RSA-4096/sole Firebase SHA-256, fresh ASCII clone builds/tests/lint, and default APK signatures |
 | 3. App Check and Firebase AI Logic remote setup | pending | — | Requires action-time confirmation before each console save |
 | 4. Live, clean-clone, release-containment, and handoff evidence | pending | — | — |
 
@@ -52,3 +52,4 @@
 
 - Task 11: the generated mixed fixture/nonblank native smoke proves bridge execution, not Korean glyph rendering or Korean-character recognition. Task 12 must validate actual Korean characters independently on Android and iPhone hardware.
 - Evaluator Cloud Task 1: the ignored first review package duplicated the tracked iOS debug token before the controller moved it out of the worktree; future review packages containing credential-source diffs must be redacted before dispatch. The implementer report's original “outside release” sentence is stale but explicitly superseded by its appended debug-only fix evidence.
+- Evaluator Cloud Task 2: `firebase_ai` still emits its existing Kotlin Gradle Plugin migration warning, and Gradle reports existing future-Gradle-10 deprecations. Current pinned builds pass; dependency migration is not expanded into this assignment task.
