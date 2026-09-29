@@ -724,3 +724,46 @@ flowchart LR
   hiring manager/development lead 92/100. Physical Android/iPhone camera,
   attestation, flash, performance, and thermal gates remain blocked and are not
   upgraded by simulator evidence.
+
+### 2026-09-30 — user + AI / simulator E2E and Play Store AVD
+
+- Request/prompt: Run every defensible E2E path on simulators/emulators, then
+  install an actually bootable Play Store AVD instead of treating simulator
+  limitations as app failures. Do not promote simulator results to real-device
+  evidence.
+- Defects found and corrected: Android's permission sheet temporarily sent the
+  app to `inactive`, causing the pending camera initialization to be disposed
+  and permission requests to loop. A RED lifecycle test reproduced it; the
+  screen now preserves only `CameraInitializing` across that transient state,
+  while hidden/paused still dispose. Target-specific Android integration builds
+  also exposed that locking every `io.flutter` engine ABI conflicts with
+  Flutter's selected target ABI; Gradle now ignores only `io.flutter:*` in the
+  lock while third-party versions remain locked. Simulator tests explicitly
+  begin resumed, and the cross-platform OCR fixture asserts the stable
+  `MULTILINE` token because Android ML Kit reads the leading generated `O` as
+  zero.
+- Android evidence: API 36 emulator UI exploration passed disclosure, initial
+  denial and settings recovery, preview/capture, rapid-tap single flight,
+  empty-result recapture, background/resume, and rotation. A newly installed
+  `AltinusPlayStore33` (Pixel 7, Android 13/API 33,
+  `google_apis_playstore/arm64-v8a`) booted with software rendering; ADB,
+  `sys.boot_completed=1`, and `com.android.vending` were verified. Native OCR
+  passed 3/3 and fake flow 2/2. Live cloud stopped before model dispatch because
+  Play Integrity returned App Check 403 for the sideloaded debug build. An API
+  30 Play Store AVD reproduced the more specific outdated-Play-Store `-14`
+  condition; API 36.1 remained ADB-offline on this host.
+- iOS evidence: iPhone 14 Pro Max iOS 18.3 simulator passed native OCR 3/3,
+  fake flow 2/2, RunnerTests 9/9, and both primary/fallback live cloud smokes.
+  The current ASCII copy passed device debug and simulator builds after the
+  documented one-time native dependency bootstrap.
+- Verification: ASCII-path `flutter analyze` reported 0 issues and all 245
+  Flutter tests passed. Focused lifecycle tests passed 8/8; framework fake flow
+  passed 2/2; Android debug build plus 422-task unit/lint passed. The Korean
+  source path still reproduces Flutter 3.47 analyzer LSP framing failure, so it
+  is recorded as a tool/path issue rather than a code failure. Physical camera,
+  Play Integrity, flash, performance, heat, and cross-device parity remain open.
+- Sources: Gradle dependency-locking ignored dependency patterns
+  (<https://docs.gradle.org/current/userguide/dependency_locking.html>) and
+  Google ARTEMIS (<https://github.com/google/artemis>). ARTEMIS was not needed
+  for the deterministic run; ADB/UIAutomator exploration supplied the bounded
+  emulator evidence.

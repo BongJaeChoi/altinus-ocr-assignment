@@ -61,6 +61,24 @@ Minimum Android scenarios (the cloud choice appears at 10 seconds, shares a cumu
 
 On ARTEMIS/tool failure, preserve the command, device state, logs, screenshot, and diagnosis. Do not turn a tool failure into an app pass/fail claim.
 
+### Verified Play Store AVD
+
+`AltinusPlayStore33` (Pixel 7 profile, Android 13/API 33,
+`google_apis_playstore/arm64-v8a`) was installed and boot-verified on the Apple
+Silicon test host. This host required the AVD's `hw.gpu.mode` to be
+`swiftshader_indirect`; the reliable headless launch is:
+
+```bash
+$ANDROID_SDK_ROOT/emulator/emulator \
+  -avd AltinusPlayStore33 -no-window -no-snapshot-load -no-audio
+```
+
+`adb devices -l`, `sys.boot_completed=1`, and the `com.android.vending`
+package were verified. Native OCR and fake-flow integration tests pass on this
+AVD. A sideloaded debug build still receives App Check `403 App attestation
+failed` before the model request, so this AVD is not physical Play Integrity
+evidence and the live Android cloud gate remains blocked.
+
 ## Chrome DevTools MCP
 
 Chrome DevTools MCP controls and inspects Chrome. In this native assignment it is a support tool for Flutter DevTools, optional web harnesses, trace/network/console inspection, and browser-rendered artifacts. It is not a native camera E2E runner.

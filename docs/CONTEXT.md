@@ -110,6 +110,21 @@ Re-check environment/device facts immediately before implementation and E2E; the
 
 ## Latest observed evidence
 
+- On 2026-09-30, source based on `9b0bb1b` plus the E2E correction diff passed
+  ASCII-path analysis with 0 issues, all 245 Flutter tests, Android/iOS native
+  OCR integration (3/3 each), Android/iOS fake flow (2/2 each), Android debug
+  build and app unit/lint, and iOS device/simulator debug builds. iOS primary
+  and fallback live cloud smokes returned nonblank generated-fixture results.
+- A Play Store AVD (`AltinusPlayStore33`, Android 13/API 33) was installed and
+  boot-verified with `com.android.vending`; native OCR and fake flow passed.
+  Its sideloaded debug build was rejected by Play Integrity with App Check 403
+  before a model request. The earlier non-Play AVD failed sooner with the exact
+  outdated/missing Play Store condition. Neither result is physical attestation.
+- Android API 36 emulator UI exploration passed disclosure, denial/settings
+  recovery, preview/capture, rapid-tap single flight, empty-result recapture,
+  background/resume, and rotation. It exposed and regression-covered a
+  permission-sheet `inactive` lifecycle loop. Emulator camera behavior is not
+  physical camera evidence.
 - Code evidence commit `7152334`, 2026-09-29 KST, fresh ASCII-only clone:
   Pigeon regeneration clean, `flutter analyze` 0 issues, 228 Flutter tests,
   2 fake full-flow tests,

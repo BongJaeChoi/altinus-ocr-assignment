@@ -45,7 +45,7 @@ void main() {
       expect(text, contains('123'), reason: variant.name);
       if (variant == FixtureImageVariant.multiline) {
         expect(text, contains('\n'), reason: variant.name);
-        expect(text, contains('OCR MULTILINE'), reason: variant.name);
+        expect(text, contains('MULTILINE'), reason: variant.name);
       }
     }
 

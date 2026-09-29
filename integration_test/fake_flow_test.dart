@@ -16,6 +16,7 @@ void main() {
   testWidgets(
     'disclosure through cloud recovery keeps local result over late cloud',
     (tester) async {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       final disclosure = MemoryDisclosureStore(accepted: false);
       final camera = ControllableCameraRepository(
         permission: CameraPermissionState.granted,
@@ -103,6 +104,7 @@ void main() {
   testWidgets(
     'pending cloud configuration automatically completes with local OCR',
     (tester) async {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       final camera = ControllableCameraRepository(
         permission: CameraPermissionState.granted,
       );

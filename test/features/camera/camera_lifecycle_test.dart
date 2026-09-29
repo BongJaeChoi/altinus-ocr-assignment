@@ -76,6 +76,39 @@ void main() {
     },
   );
 
+  testWidgets(
+    'permission-sheet inactive keeps the pending initialization alive',
+    (tester) async {
+      final harness = _LifecycleHarness(
+        permission: CameraPermissionState.denied,
+        holdInitialize: true,
+      );
+      addTearDown(() {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+      });
+      await tester.pumpWidget(harness.widget);
+      await tester.pump();
+      await tester.pump();
+      expect(harness.camera.initializeCount, 1);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+
+      expect(harness.camera.disposeCount, 0);
+      expect(harness.camera.initializeCount, 1);
+      harness.camera.completeInitialize(0);
+      await tester.pump();
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      expect(harness.camera.initializeCount, 1);
+      expect(find.byKey(const ValueKey('open-settings')), findsOneWidget);
+    },
+  );
+
   for (final initialState in [
     AppLifecycleState.hidden,
     AppLifecycleState.paused,
@@ -145,11 +178,15 @@ void main() {
 }
 
 final class _LifecycleHarness {
-  _LifecycleHarness({bool flashSupported = true})
-    : camera = ControllableCameraRepository(
-        permission: CameraPermissionState.granted,
-        flashSupported: flashSupported,
-      );
+  _LifecycleHarness({
+    bool flashSupported = true,
+    CameraPermissionState permission = CameraPermissionState.granted,
+    bool holdInitialize = false,
+  }) : camera = ControllableCameraRepository(
+         permission: permission,
+         flashSupported: flashSupported,
+         holdInitialize: holdInitialize,
+       );
 
   final ControllableCameraRepository camera;
   final disclosure = MemoryDisclosureStore(accepted: true);

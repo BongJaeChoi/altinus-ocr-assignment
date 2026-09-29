@@ -149,4 +149,8 @@ dependencies {
 
 dependencyLocking {
     lockAllConfigurations()
+    // Flutter selects engine artifacts by target ABI. Locking every engine ABI
+    // makes device-targeted integration builds fail when unused ABIs disappear
+    // from that configuration; third-party dependency versions remain locked.
+    ignoredDependencies.add("io.flutter:*")
 }

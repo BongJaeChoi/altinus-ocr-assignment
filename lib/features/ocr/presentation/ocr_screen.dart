@@ -50,6 +50,13 @@ final class _OcrScreenState extends ConsumerState<OcrScreen>
     if (!mounted) {
       return;
     }
+    if (state == AppLifecycleState.inactive &&
+        ref.read(ocrFlowControllerProvider) is CameraInitializing) {
+      // System permission sheets temporarily make the host app inactive.
+      // Keep the in-flight permission result alive; a real background
+      // transition will still deliver hidden/paused and release the camera.
+      return;
+    }
     if (state == AppLifecycleState.resumed) {
       if (!_inactiveForwarded) {
         return;

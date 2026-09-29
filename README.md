@@ -74,24 +74,28 @@ Firebase/ML Kit SDK의 이미 시작된 native 호출을 실제로 취소한다�
 
 ## 검증 상태
 
-아래 최신 failover 결과는 2026-09-29 KST, 코드 커밋 `13fc11b`와 동일한 소스의 ASCII 경로 복제본에서 관찰했습니다. 기존 iOS native OCR 증거는 `30cb3d0`, primary cloud 성공은 `899bf4c`에 결속되어 있고, `13fc11b` 소스 상태에서는 fallback 모델 live smoke가 통과했습니다. 결과가 없는 실기기 항목을 통과로 해석하면 안 됩니다.
+아래 최신 simulator/emulator 결과는 2026-09-30 KST, 기준 커밋 `9b0bb1b`와 이 E2E 보정 diff를 적용한 ASCII 경로 복제본에서 관찰했습니다. 기존 primary/fallback cloud 성공도 같은 세션에서 다시 확인했습니다. 결과가 없는 실기기 항목을 통과로 해석하면 안 됩니다.
 
 | Gate | 관찰 결과 |
 | --- | --- |
 | `flutter pub get`, Pigeon 재생성, tracked diff | PASS — 생성물 byte diff와 tracked 변경 없음 |
 | `flutter analyze` | PASS — 0 issues |
-| `flutter test` | PASS — 244 tests |
+| `flutter test` | PASS — 245 tests |
 | fake full-flow integration | PASS — 2 tests |
 | Android debug/release build | PASS — release universal APK 86.1 MB |
 | Android app unit test + lint | PASS — 422 tasks, build successful |
+| Android API 33 Play Store emulator native OCR | PASS — real Pigeon → Kotlin → Korean ML Kit; fixtures, missing input, 10 sequential requests, 3/3 |
+| Android emulator fake full-flow | PASS — 2/2 |
+| Android API 36 emulator UI flow | PASS/PARTIAL — disclosure, first denial/settings recovery, preview/capture, rapid-tap single flight, empty-result recapture, background/resume, portrait/landscape; emulator camera evidence only |
+| Android emulator live cloud smoke | BLOCKED — Play Store AVD 설치·부팅 및 `com.android.vending` 확인 후에도 sideloaded debug build의 Play Integrity attestation이 403으로 거부되어 model request 전 중단 |
 | Android release signing | PASS — Firebase에 유일하게 등록된 과제 인증서 SHA-256과 일치 |
 | iOS debug/release no-codesign build | PASS — release `Runner.app` 69.4 MB |
-| iOS simulator native OCR | PASS — iOS 18.5, real Pigeon → Swift → Korean ML Kit; Korean/Latin core tokens, multiline/newline, rotated, no-text, missing input, 10 sequential OCR requests |
+| iOS simulator native OCR | PASS — iOS 18.3, real Pigeon → Swift → Korean ML Kit; Korean/Latin core tokens, multiline/newline, rotated, no-text, missing input, 10 sequential OCR requests |
 | iOS simulator fake full-flow | PASS — disclosure, pause/resume, cloud retry, 10-second local selection, stale cloud rejection |
 | iOS simulator RunnerTests | PASS — 9/9 native policy tests on x86_64 |
 | iOS release credential containment | PASS — evaluator debug token 값/식별자 없음 |
 | Android release credential containment | PASS — evaluator debug token 값/식별자 없음 |
-| iOS simulator live cloud smoke | PASS/PARTIAL — primary는 `899bf4c`, fallback `gemini-3.5-flash-lite`는 `13fc11b` 소스 상태에서 iOS 18.3 생성 fixture PASS; 물리 attestation 증거는 아님 |
+| iOS simulator live cloud smoke | PASS/PARTIAL — `gemini-3.8-flash` primary와 `gemini-3.5-flash-lite` fallback 모두 iOS 18.3 생성 fixture PASS; 물리 attestation 증거는 아님 |
 | Firebase AI monitoring (developer-observed remote evidence) | OBSERVED — iOS 요청/성공·실패/지연/token 집계 생성 확인; 콘솔 권한 없이는 재현 불가 |
 | Android physical device | BLOCKED — 최종 검증 시 연결된 기기 없음 |
 | iPhone physical device | BLOCKED — 최종 검증 시 연결된 기기 없음 |
