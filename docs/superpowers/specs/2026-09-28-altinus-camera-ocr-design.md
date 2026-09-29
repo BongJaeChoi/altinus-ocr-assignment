@@ -59,7 +59,7 @@ Repositories expose domain operations and convert service output into domain res
 
 ### Services and native adapters
 
-Services are replaceable external adapters. `FirebaseAiOcrService` calls the official `firebase_ai` API and owns Firebase result parsing and error classification; it does not replace or wrap the SDK transport with Dio. The unconfigured evaluator gateway exposes an explicit pending capability: only its typed `configuration` failure continues directly to local OCR, while configuration/service failures from a configured gateway retain the recovery UI. No message parsing or concrete-class check drives this distinction. No application-level raw HTTP client is implemented or tested. If a future direct endpoint creates a real HTTP boundary, a Dio-backed adapter owns it. `PigeonLocalOcrService` passes a temporary image file path through generated Pigeon code. Kotlin and Swift create, use, and release their ML Kit input and recognizer resources asynchronously.
+Services are replaceable external adapters. `FirebaseAiOcrService` calls the official `firebase_ai` API and owns Firebase result parsing and error classification; it does not replace or wrap the SDK transport with Dio. The unconfigured evaluator gateway exposes a stable pending capability. After capture ownership is established, the controller uses that capability to enter local OCR before creating cloud state, timers, image preparation, or an SDK call. A configured gateway reports `false`, remains cloud-first, and retains recovery for configuration/service failures. No message parsing or concrete-class check drives this distinction. The former post-dispatch typed-configuration fallback was removed: with stable composition it is unreachable, and keeping a second decision point could silently reinterpret a configured gateway failure. No application-level raw HTTP client is implemented or tested. If a future direct endpoint creates a real HTTP boundary, a Dio-backed adapter owns it. `PigeonLocalOcrService` passes a temporary image file path through generated Pigeon code. Kotlin and Swift create, use, and release their ML Kit input and recognizer resources asynchronously.
 
 No separate use-case layer is added; it would only duplicate orchestration already owned by the controller.
 
@@ -95,7 +95,7 @@ The public Firebase exception type is used when it is specific. Exception messag
 
 - At most two cloud attempts exist in one transaction and the UI shows `1/2` or `2/2`.
 - Only a clearly identified transport/transient failure is retried once with bounded exponential backoff and jitter.
-- Quota, configured-gateway invalid configuration/key, disabled service, unsupported location, generic/ambiguous server failure, SDK parsing failure, safety/recitation, invalid schema, and the 60-second deadline are not automatically retried. The evaluator-only pending capability is the narrow exception: its typed configuration failure proceeds to local OCR without a recovery tap.
+- Quota, configured-gateway invalid configuration/key, disabled service, unsupported location, generic/ambiguous server failure, SDK parsing failure, safety/recitation, invalid schema, and the 60-second deadline are not automatically retried. The evaluator-only pending capability is a pre-dispatch composition branch, not an error-policy exception.
 - A non-retryable failure or a failed second attempt offers local OCR or recapture.
 - Choosing local OCR invalidates the cloud transaction. The SDK call already in flight may not be physically cancellable; a late completion is ignored by transaction identity.
 
@@ -112,7 +112,9 @@ flowchart TD
     DENIED --> SETTINGS[Open app settings through Pigeon]
     INIT --> PREVIEW[Preview ready]
     PREVIEW --> CAPTURE[Debounced still capture]
-    CAPTURE --> CLOUD_START[Enter recognizingCloud; total budget starts]
+    CAPTURE --> MODE{Cloud configured?}
+    MODE -->|pending| LOCAL
+    MODE -->|yes| CLOUD_START[Enter recognizingCloud; total budget starts]
     CLOUD_START --> PREPARE[Normalize direction and guard request size]
     PREPARE --> CLOUD[Cloud OCR request]
     CLOUD -->|valid text| CLOUD_RESULT[Display cloud result]
@@ -142,7 +144,7 @@ Only one capture/OCR transaction may be active. Capture is disabled or ignored w
 
 ## 6. Timing behavior
 
-The controller enters `recognizingCloud` immediately after a successful capture and starts the cloud budget before image preparation. Image preparation, first request, backoff, and second request share one cumulative 60-second budget. Retry and `조금 더 기다리기` never reset it.
+For a configured gateway, the controller enters `recognizingCloud` immediately after a successful capture and starts the cloud budget before image preparation. Image preparation, first request, backoff, and second request share one cumulative 60-second budget. Retry and `조금 더 기다리기` never reset it. The pending evaluator gateway instead enters local recognition immediately and creates no cloud budget.
 
 At 10 seconds, the request is still valid. The UI presents `기기에서 인식` as the primary recovery action and `조금 더 기다리기` as the secondary action. Waiting continues the same request and attempt count.
 

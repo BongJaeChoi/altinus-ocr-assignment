@@ -5,7 +5,7 @@ Flutter로 만든 카메라 OCR 과제입니다. 후면 카메라로 정지 이�
 ## 현재 평가 상태 — 먼저 읽어 주세요
 
 - 자동화·빌드 검증은 아래 표의 범위에서 수행했습니다.
-- **기본 체크아웃은 Firebase가 설정되지 않은 `FirebaseConfigurationPendingGateway`를 사용합니다.** 촬영 뒤 typed pending-configuration 신호만 자동으로 기기 OCR로 이어지므로 별도 오류 화면이나 recovery tap 없이 결과를 확인할 수 있습니다. 실제로 구성된 Firebase gateway의 configuration/service 실패는 자동 전환하지 않고 회복 UI를 유지합니다. Firebase 프로젝트, 모바일 앱 설정, 모델/쿼터/지역 접근을 아직 승인·구성·실행 검증하지 않았으므로 클라우드 OCR은 live-ready가 아닙니다.
+- **기본 체크아웃은 Firebase가 설정되지 않은 `FirebaseConfigurationPendingGateway`를 사용합니다.** 촬영 원본의 ownership을 확정한 직후 명시적 pending capability만으로 기기 OCR을 시작합니다. cloud 상태·10/60초 timer·이미지 준비·Firebase 호출을 만들지 않으므로 별도 오류 화면이나 recovery tap이 없습니다. 실제로 구성된 Firebase gateway는 capability가 `false`여서 cloud-first를 유지하고, configuration/service 실패는 회복 UI로 갑니다. Firebase 프로젝트, 모바일 앱 설정, 모델/쿼터/지역 접근을 아직 승인·구성·실행 검증하지 않았으므로 클라우드 OCR은 live-ready가 아닙니다.
 - Android 실기기와 iPhone 실기기 검증은 아직 없습니다. 따라서 카메라 프리뷰, 실제 캡처, 한국어 인식 정확도, 권한/설정 이동, 성능·메모리·발열, 라이프사이클, 10회 반복 촬영의 플랫폼 패리티는 **미입증**입니다.
 - 플래시는 코드상 지원을 탐지한 경우에만 자동/끔 UI를 보이지만, 양 플랫폼에서 실제 점등·복귀·패리티가 검증되지 않았습니다. **flash-ready라고 주장하지 않습니다.** Task 13에서는 제거하지 않았으며, 출시 전 숨김/제거 여부는 루트 release decision으로 남습니다.
 
@@ -23,7 +23,7 @@ Firebase를 임의로 만들거나 설정하지 마세요. 승인된 기존 프�
 
 ### Firebase 없는 평가 모드
 
-기본 checkout은 Firebase를 초기화하지 않습니다. 따라서 평가자가 확인할 의도된 흐름은 **촬영 → pending configuration 감지 → 기기 OCR → 결과**입니다. controller는 메시지나 구현 클래스가 아니라 gateway가 제공하는 명시적 capability와 typed `configuration` 실패를 함께 확인합니다. 승인된 Firebase gateway가 구성되면 cloud-first를 유지하며, 그 gateway에서 발생한 configuration/service 실패는 기존 recovery 정책을 따릅니다. Firebase 프로젝트가 승인·설정될 때까지 cloud 성공은 기대 결과가 아니며, cloud-ready라고 주장하지 않습니다.
+기본 checkout은 Firebase를 초기화하지 않습니다. 따라서 평가자가 확인할 의도된 흐름은 **촬영 → pending capability 확인 → 기기 OCR → 결과**입니다. controller는 메시지, 예외, 구현 클래스가 아니라 합성 시점의 명시적 capability만 확인합니다. 이 capability는 요청 실패가 아니라 “호출할 cloud가 아직 구성되지 않음”을 뜻하므로 cloud-only 이미지 준비와 예산도 시작하지 않습니다. 승인된 Firebase gateway가 구성되면 cloud-first를 유지하며, 그 gateway에서 발생한 configuration/service 실패는 기존 recovery 정책을 따릅니다. Firebase 프로젝트가 승인·설정될 때까지 cloud 성공은 기대 결과가 아니며, cloud-ready라고 주장하지 않습니다.
 
 ## 구현 구성
 
@@ -48,10 +48,10 @@ OcrScreen (immutable UI)
 
 ### OCR 및 시간 경계
 
-1. 성공한 촬영 뒤 클라우드 OCR을 먼저 시도합니다(구성된 Firebase에서만).
+1. 성공한 촬영 뒤 구성된 Firebase에서는 cloud OCR을 먼저 시도합니다. pending evaluator gateway에서는 capture ownership 확정 직후 local OCR로 직행합니다.
 2. 하나의 transaction에는 최대 2회의 cloud attempt만 허용합니다. 명확한 transient 오류만 한 번 재시도합니다.
-3. 이미지 준비부터 재시도까지 공유하는 누적 예산은 **60초**입니다. **10초**에는 `기기에서 인식` 또는 계속 기다리기를 제공합니다. Firebase/ML Kit SDK의 이미 시작된 호출을 실제로 중단할 수 있다고 주장하지 않으며, 전환·마감 뒤의 늦은 결과를 transaction ID로 무시합니다.
-4. pending Firebase configuration은 자동으로, 사용자가 local을 선택하거나 cloud가 회복 불가 상태가 되면 명시적으로 공식 Korean ML Kit Pigeon bridge로 순차 전환합니다. cloud와 local을 병렬 실행하지 않습니다.
+3. 구성된 cloud 경로의 이미지 준비부터 재시도까지 공유하는 누적 예산은 **60초**입니다. **10초**에는 `기기에서 인식` 또는 계속 기다리기를 제공합니다. Firebase/ML Kit SDK의 이미 시작된 호출을 실제로 중단할 수 있다고 주장하지 않으며, 전환·마감 뒤의 늦은 결과를 transaction ID로 무시합니다.
+4. pending Firebase configuration은 cloud 작업 전에 자동으로, 구성된 cloud가 회복 불가 상태가 되면 사용자 선택으로 공식 Korean ML Kit Pigeon bridge에 순차 전환합니다. cloud와 local을 병렬 실행하지 않습니다.
 
 이미지 준비는 isolate에서 수행하고, 과대 입력은 크기/픽셀/업로드 바이트 한도 안으로 정규화합니다. UI는 진행 상태와 중복 촬영 차단을 갖고, stale 결과가 새 촬영을 덮어쓰지 않도록 테스트합니다. 이는 구조·자동화 근거이며 실기기 성능 측정 결과는 아닙니다.
 
@@ -72,14 +72,14 @@ OcrScreen (immutable UI)
 | handwritten Dart format (`lib/src/generated` 제외) | PASS — 43 files, 0 changed |
 | `flutter test` | PASS — 214 tests (final-review follow-up 포함) |
 | `flutter analyze` (현재 한글 상위 경로) | BLOCKED/FAIL — 분석 전에 LSP `FormatException: Unterminated string`; 아래 ASCII 경로 검증 사용 |
-| `flutter build apk --debug` | PASS — Gradle strict lock 적용 상태 |
+| `flutter build apk --debug` | PASS — Gradle 기본 모드 dependency lock validation 적용 상태 |
 | Android `:app:testDebugUnitTest :app:lintDebug` | PASS |
 | `flutter build ios --debug --no-codesign` (현재 한글 상위 경로) | BLOCKED/FAIL — SwiftPM이 percent-encoded Firebase package 경로의 `pubspec.yaml`을 찾지 못함; 아래 ASCII 경로 검증 사용 |
 | Firebase live cloud / native smoke / 실기기 matrix | BLOCKED — 승인된 Firebase 프로젝트와 Android/iPhone 하드웨어 없음 |
 
 원본 작업 경로의 한글 상위 디렉터리는 Flutter analyzer LSP framing과 Xcode SwiftPM percent-encoding을 깨뜨립니다. 소스를 변경하거나 Xcode를 우회 수정하지 않고, **ASCII 전용 임시 clone**에서 같은 Flutter SDK로 분석·테스트·Android/iOS build를 실행합니다.
 
-기존 release 증거에 더해 pre-release 문서 커밋 `7ac0e93046bbbf61f12e4b13237547053873aa73`을 ASCII 임시 clone(`ARTINUS_CLONE_DIR`)에서 다시 검증했습니다. Pigeon 재생성, analyze, 213-test suite, 2 fake integration tests, strict-lock Android debug build와 app test/lint, iOS debug no-codesign build가 PASS했고 build/resolve 뒤 tracked tree도 clean이었습니다. 생성 Pigeon Dart/Kotlin/Swift는 29.0.4 출력 그대로이며 재생성 byte diff가 없습니다. 생성기가 남기는 trailing spaces는 손으로 고치지 않았고, whitespace 검사는 handwritten source 범위에만 적용합니다. Gradle lock은 app-resolved 구성과 Flutter assemble에 필요한 runtime 구성을 포함하며 지원되는 `:app:dependencies --write-locks`로 생성했습니다. Xcode가 생성한 Runner project/workspace `Package.resolved`는 서로 같은 해시이고 `xcodebuild -resolvePackageDependencies` 뒤에도 유지됩니다. CocoaPods `Podfile.lock`도 유지합니다.
+기존 release 증거에 더해 pre-release 문서 커밋 `7ac0e93046bbbf61f12e4b13237547053873aa73`을 ASCII 임시 clone(`ARTINUS_CLONE_DIR`)에서 다시 검증했습니다. Pigeon 재생성, analyze, 213-test suite, 2 fake integration tests, 기본 모드 Gradle dependency lock validation 상태의 Android debug build와 app test/lint, iOS debug no-codesign build가 PASS했고 build/resolve 뒤 tracked tree도 clean이었습니다. 생성 Pigeon Dart/Kotlin/Swift는 29.0.4 출력 그대로이며 재생성 byte diff가 없습니다. 생성기가 남기는 trailing spaces는 손으로 고치지 않았고, whitespace 검사는 handwritten source 범위에만 적용합니다. Gradle `LockMode.STRICT`는 설정하지 않았습니다. 기본 모드는 기록된 lock state를 resolution 제약으로 검증하며, STRICT는 여기에 “locked configuration에 state가 없으면 실패”를 추가합니다. 현재 `:app:resolvableConfigurations`의 57개 이름과 `gradle.lockfile`의 configuration 이름 57개는 완전히 일치합니다. 잠금은 지원되는 `:app:dependencies --write-locks`로 생성했습니다. Xcode가 생성한 Runner project/workspace `Package.resolved`는 서로 같은 해시이고 `xcodebuild -resolvePackageDependencies` 뒤에도 유지됩니다. CocoaPods `Podfile.lock`도 유지합니다.
 
 개발/재현 명령은 다음과 같습니다.
 
@@ -121,3 +121,4 @@ flutter build ios --debug --no-codesign
 - [과제 원문](https://github.com/git-artinus/artinus-fe-recurit/blob/cb7c0d5323e9c0f347253cf52c09594e18342ced/README.md)
 - [Flutter integration test](https://docs.flutter.dev/testing/integration-tests), [camera package](https://pub.dev/packages/camera), [Pigeon](https://pub.dev/packages/pigeon)
 - [Firebase AI Logic for Flutter](https://firebase.google.com/docs/ai-logic/get-started?api=dev&platform=flutter), [ML Kit Android](https://developers.google.com/ml-kit/vision/text-recognition/v2/android), [ML Kit iOS](https://developers.google.com/ml-kit/vision/text-recognition/v2/ios)
+- [Gradle dependency locking and lock modes](https://docs.gradle.org/current/userguide/dependency_locking.html)

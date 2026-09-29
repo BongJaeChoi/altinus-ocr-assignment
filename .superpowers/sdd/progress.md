@@ -20,6 +20,7 @@
 | 12. Real-device and performance verification | pending | — | — |
 | 13. README and clean-clone verification | complete with gates | `766f8ad`, `cca0e7b`, `99bad2c`, `be032cf..HEAD` | Root-review follow-up verified; Firebase/device/flash gates remain |
 | 14. Whole-branch pre-release fixes | complete with external gates | `e930239`, `11169d6`, `7ac0e93`, `HEAD` | Pending Firebase auto-local, native taxonomy, Gradle/SwiftPM locks, and clean-clone verification complete; Firebase/device/signing gates remain |
+| 15. Independent pre-release follow-up | complete with external gates | `00fbb0a`, `HEAD` | Pending capability now bypasses all cloud-only work; default Gradle lock-mode wording and 57/57 state evidence corrected |
 
 ## Minor findings
 

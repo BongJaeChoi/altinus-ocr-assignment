@@ -6,7 +6,7 @@ DONE_WITH_EXTERNAL_GATES. No Firebase project, credential, App Check setting, ph
 
 ## Delivered
 
-1. The default unconfigured Firebase gateway now advertises an explicit pending capability. Its typed configuration failure continues automatically to local OCR; configured gateway configuration/service failures retain the existing recovery policy.
+1. The default unconfigured Firebase gateway advertises an explicit pending capability. After canonical ownership is established, the controller enters local OCR before cloud state, timers, image preparation, or Firebase dispatch; configured gateway configuration/service failures retain the existing recovery policy.
 2. The Dart Pigeon adapter maps exact `PlatformException.code` values without reading messages and rejects `noReadableText` replies unless `text` is null. Native codes remain internal.
 3. Android app configurations use generated Gradle dependency locking. Runner project/workspace SwiftPM resolutions are committed alongside the existing CocoaPods lock.
 4. README and design/context records now explain the evaluator flow, selection rationale, privacy/latency/binary/native-maintenance costs, cancellation and temporary-file limits, physical-evidence gap, and current `com.example`/debug-signing state.
@@ -16,6 +16,7 @@ Implementation commits:
 - `e930239` — behavior and TDD coverage
 - `11169d6` — generated Gradle/SwiftPM locks
 - `7ac0e93` — evaluator documentation and decision alignment
+- `00fbb0a` — pending-capability direct local path and race/cleanup coverage
 
 ## RED to GREEN evidence
 
@@ -32,13 +33,15 @@ After implementation:
 
 Configured `configuration` and `service` failures remain recoverable, and the tests assert that technical codes/details do not render in UI.
 
-Final-review follow-up added the missing pending-capability plus `service` failure invariant: the focused controller suite passed 75 and the full suite passed 214. This test-only/doc-only follow-up does not alter the clean-clone production graph recorded below.
+The later independent-review follow-up replaced the post-dispatch typed fallback with a pre-dispatch capability branch. Four RED tests demonstrated cloud state/preparation entry and missing local work; GREEN covers held/failing preparer bypass, no cloud request or 10/60-second effect, local success/failure, recapture/dispose cleanup exactly once, and stale local completion. Configured-gateway configuration/service recovery remains covered.
 
 ## Lock generation and reproducibility
 
 ### Android
 
 - `dependencyLocking { lockAllConfigurations() }` is scoped to the app project.
+- No `LockMode.STRICT` override is enabled. Gradle's default mode validates configurations that have lock state by injecting locked versions as strict resolution constraints; STRICT would additionally fail solely when a locked configuration has no state.
+- `:app:resolvableConfigurations` reports 57 current app configurations. Parsing the lockfile dependency and `empty=` entries produces the same 57 names; both set differences are empty, so every current resolvable app configuration has associated state under the default mode.
 - Flutter assemble exposes Kotlin's common runtime module later than a plain dependency report. Declaring the matching module as `runtimeOnly` makes debug/profile/release runtime configurations visible to Gradle lock generation.
 - Generated with Java 17 and:
 
@@ -70,7 +73,7 @@ Clone source: `7ac0e93046bbbf61f12e4b13237547053873aa73` at `/tmp/artinus-pre-re
 | `flutter analyze` | PASS — no issues, 4.4s |
 | `flutter test` | PASS — 213 |
 | `flutter test -d flutter-tester integration_test/fake_flow_test.dart` | PASS — 2 |
-| `flutter build apk --debug` | PASS with strict Gradle lock |
+| `flutter build apk --debug` | PASS with default-mode Gradle dependency lock validation |
 | `:app:testDebugUnitTest :app:lintDebug` | PASS — 421 tasks |
 | `flutter build ios --debug --no-codesign` | PASS |
 | Xcode package resolve and both SwiftPM hashes | PASS — unchanged and identical |

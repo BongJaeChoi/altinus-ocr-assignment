@@ -83,7 +83,7 @@ Re-check environment/device facts immediately before implementation and E2E; the
 ## Committed implementation decisions
 
 - Use `firebase_ai` cloud-first OCR, with official Korean ML Kit through a Pigeon fallback.
-- In the unconfigured evaluator build only, an explicit pending capability plus typed `configuration` failure continues directly to local OCR; configured Firebase configuration/service failures keep the recovery UI.
+- In the unconfigured evaluator build only, the stable pending capability routes an owned capture directly to local OCR before cloud state, preparation, timers, or dispatch; configured Firebase configuration/service failures keep the recovery UI.
 - Use manual Riverpod `NotifierProvider`; do not use code generation.
 - Give the user a 10-second choice, with a cumulative 60-second cloud budget and at most two cloud attempts.
 - Iterate on an Android device; borrow an iPhone for final real-device proof.
