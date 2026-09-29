@@ -1,0 +1,65 @@
+version: 1
+policy:
+  max_concurrent: 3
+  require_independent_scope: true
+  forbid_same_file_parallel_edits: true
+  default_to_main_agent_for_short_or_dependent_work: true
+  model_selection_basis: >-
+    Use the lowest-cost model and effort that reliably fits the bounded task;
+    escalate only when repository evidence or failed verification justifies it.
+
+agents:
+  repo_scout:
+    model: gpt-5.6-luna
+    effort: low
+    mode: read_only
+    use_for: inventory, focused file discovery, command/output collection
+    output: paths, facts, unknowns, and exact evidence only
+
+  requirements_analyst:
+    model: gpt-5.6-terra
+    effort: medium
+    mode: read_only
+    use_for: source reconciliation, acceptance-criteria gaps, requirement traceability
+    output: requirement-to-evidence ledger with conflicts labeled
+
+  flutter_implementer:
+    model: gpt-5.6-sol
+    effort: high
+    mode: write_scoped
+    use_for: one bounded Flutter vertical slice after a failing test exists
+    output: changed files, tradeoffs, tests run, residual risks
+
+  test_designer:
+    model: gpt-5.6-sol
+    effort: high
+    mode: write_tests_only
+    use_for: state-machine, race, lifecycle, bad-input, and failure-injection tests
+    output: failing test and the exact behavior it specifies
+
+  android_e2e:
+    model: gpt-5.6-terra
+    effort: high
+    mode: device_scoped
+    use_for: ARTEMIS exploration and bounded Android scenarios
+    output: dated device facts, steps, result, artifacts, tool failures
+
+  ios_verifier:
+    model: gpt-5.6-sol
+    effort: high
+    mode: device_scoped
+    use_for: Xcode/XCUITest and real-iPhone behavior verification
+    output: dated device facts, platform differences, result, artifacts
+
+  code_reviewer:
+    model: gpt-5.6-sol
+    effort: xhigh
+    mode: read_only
+    use_for: final cross-platform correctness, concurrency, lifecycle, and evidence audit
+    output: severity-ranked findings with file/line evidence; no edits
+
+forbidden_agents:
+  - docs_only_writer
+  - unscoped_parallel_implementer
+  - submitter_without_fresh_user_authorization
+
