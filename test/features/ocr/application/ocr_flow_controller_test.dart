@@ -6,6 +6,7 @@ import 'package:altinus_ocr/features/ocr/application/ocr_flow_state.dart';
 import 'package:altinus_ocr/features/ocr/application/ocr_providers.dart';
 import 'package:altinus_ocr/features/ocr/domain/ocr_engine.dart';
 import 'package:altinus_ocr/features/ocr/domain/ocr_failure.dart';
+import 'package:altinus_ocr/features/ocr/domain/ocr_ports.dart';
 import 'package:altinus_ocr/features/ocr/domain/ocr_result.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -733,6 +734,18 @@ void main() {
   });
 
   group('cloud timing and retry policy', () {
+    test('production first retry delay stays between 1 and 1.25 seconds', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final retryDelay = container.read(ocrRetryDelayProvider);
+
+      for (var sample = 0; sample < 100; sample += 1) {
+        final delay = retryDelay(1);
+        expect(delay, greaterThanOrEqualTo(const Duration(seconds: 1)));
+        expect(delay, lessThanOrEqualTo(const Duration(milliseconds: 1250)));
+      }
+    });
+
     test('9.999 seconds stays active and 10 seconds presents one choice', () {
       fakeAsync((async) {
         final harness = _Harness(async)..startCloud(async);
@@ -792,6 +805,10 @@ void main() {
         expect(harness.cloud.requests, hasLength(1));
         async.elapse(const Duration(milliseconds: 1));
         expect(harness.cloud.requests, hasLength(2));
+        expect(harness.cloud.attempts, <CloudOcrAttempt>[
+          CloudOcrAttempt.primary,
+          CloudOcrAttempt.fallback,
+        ]);
         expect((harness.state as RecognizingCloud).attempt, 2);
         harness.dispose(async);
       });
@@ -815,16 +832,26 @@ void main() {
       });
     });
 
-    test('a nonretryable first failure enters recovery after one call', () {
+    test('a quota failure uses the fallback model exactly once', () {
       fakeAsync((async) {
         final harness = _Harness(async)..startCloud(async);
 
         harness.cloud.fail(0, OcrFailure.quota());
         async.flushMicrotasks();
+        async.elapse(const Duration(milliseconds: 500));
+
+        expect(harness.cloud.requests, hasLength(2));
+        expect(harness.cloud.attempts, <CloudOcrAttempt>[
+          CloudOcrAttempt.primary,
+          CloudOcrAttempt.fallback,
+        ]);
+
+        harness.cloud.fail(1, OcrFailure.quota());
+        async.flushMicrotasks();
 
         final recovery = harness.state as CloudRecovery;
         expect(recovery.failure.kind, OcrFailureKind.quota);
-        expect(harness.cloud.requests, hasLength(1));
+        expect(harness.cloud.requests, hasLength(2));
         harness.dispose(async);
       });
     });
@@ -832,8 +859,11 @@ void main() {
     for (final failureKind in <OcrFailureKind>[
       OcrFailureKind.configuration,
       OcrFailureKind.service,
+      OcrFailureKind.safetyOrRecitation,
+      OcrFailureKind.invalidResponse,
+      OcrFailureKind.invalidInput,
     ]) {
-      test('configured cloud $failureKind keeps recovery policy', () {
+      test('nonretryable cloud $failureKind stops after primary', () {
         fakeAsync((async) {
           final harness = _Harness(async)..startCloud(async);
 
@@ -842,6 +872,10 @@ void main() {
 
           final recovery = harness.state as CloudRecovery;
           expect(recovery.failure.kind, failureKind);
+          expect(harness.cloud.requests, hasLength(1));
+          expect(harness.cloud.attempts, <CloudOcrAttempt>[
+            CloudOcrAttempt.primary,
+          ]);
           expect(harness.local.paths, isEmpty);
           harness.dispose(async);
         });

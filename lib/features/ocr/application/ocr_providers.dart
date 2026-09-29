@@ -53,9 +53,9 @@ final ocrNowProvider = Provider<OcrNow>((ref) => DateTime.now);
 final ocrRetryDelayProvider = Provider<OcrRetryDelay>((ref) {
   final random = Random();
   return (failedAttempt) {
-    const baseMilliseconds = 400;
+    const baseMilliseconds = 1000;
     const maximumMilliseconds = 2000;
-    const maximumJitterMilliseconds = 200;
+    const maximumJitterMilliseconds = 250;
     final exponentialMilliseconds =
         baseMilliseconds * (1 << (failedAttempt - 1).clamp(0, 3));
     final boundedMilliseconds = min(

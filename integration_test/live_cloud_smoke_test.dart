@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:altinus_ocr/bootstrap/firebase_cloud_bootstrap.dart';
 import 'package:altinus_ocr/features/ocr/data/firebase_ai_ocr_service.dart';
+import 'package:altinus_ocr/features/ocr/domain/ocr_ports.dart';
 import 'package:altinus_ocr/features/ocr/domain/ocr_result.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +14,10 @@ import 'support/fixture_image_factory.dart';
 const _runLiveOcr = bool.fromEnvironment('RUN_LIVE_OCR');
 const _device = String.fromEnvironment('OCR_DEVICE');
 const _commit = String.fromEnvironment('OCR_GIT_COMMIT');
+const _cloudAttemptName = String.fromEnvironment(
+  'OCR_CLOUD_ATTEMPT',
+  defaultValue: 'primary',
+);
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -48,15 +53,26 @@ void main() {
       cloudEvidenceEnabled: true,
     );
     expect(gateway.configurationPending, isFalse);
+    final cloudAttempt = switch (_cloudAttemptName) {
+      'primary' => CloudOcrAttempt.primary,
+      'fallback' => CloudOcrAttempt.fallback,
+      _ => throw ArgumentError.value(
+        _cloudAttemptName,
+        'OCR_CLOUD_ATTEMPT',
+        'Use primary or fallback.',
+      ),
+    };
 
     final result = await FirebaseAiOcrService(gateway: gateway)
-        .recognize(fixture.path);
+        .recognize(fixture.path, attempt: cloudAttempt);
     expect(result, isA<TextDetected>());
     expect((result as TextDetected).text.trim(), isNotEmpty);
 
     debugPrint(
       jsonEncode(<String, String>{
-        'model': FirebaseSdkModelGateway.modelName,
+        'model': cloudAttempt == CloudOcrAttempt.primary
+            ? FirebaseSdkModelGateway.primaryModelName
+            : FirebaseSdkModelGateway.fallbackModelName,
         'platform': Platform.operatingSystem,
         'device': _device,
         'os': Platform.operatingSystemVersion,

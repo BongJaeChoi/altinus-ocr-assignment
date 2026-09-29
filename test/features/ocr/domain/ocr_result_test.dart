@@ -18,9 +18,10 @@ void main() {
     expect((result as TextDetected).text, 'Invoice 42');
   });
 
-  test('only explicit transport failure retries', () {
+  test('only explicit transient cloud failures retry', () {
     expect(OcrFailure.transportTransient().isRetryable, isTrue);
-    expect(OcrFailure.quota().isRetryable, isFalse);
+    expect(OcrFailure.quota().isRetryable, isTrue);
+    expect(OcrFailure.serviceTransient().isRetryable, isTrue);
     expect(OcrFailure.invalidResponse().isRetryable, isFalse);
     for (final kind in OcrFailureKind.values) {
       expect(

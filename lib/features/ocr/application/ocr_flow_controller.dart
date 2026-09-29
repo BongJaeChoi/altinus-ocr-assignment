@@ -542,7 +542,12 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
     int attempt,
   ) async {
     try {
-      final result = await _cloudOcr.recognize(cloudPath);
+      final result = await _cloudOcr.recognize(
+        cloudPath,
+        attempt: attempt == 1
+            ? CloudOcrAttempt.primary
+            : CloudOcrAttempt.fallback,
+      );
       if (!_ownsTransaction(transactionId)) {
         return;
       }

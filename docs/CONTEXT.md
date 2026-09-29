@@ -92,7 +92,8 @@ Re-check environment/device facts immediately before implementation and E2E; the
   routes an owned capture directly to local OCR before Firebase initialization,
   cloud image preparation, timers, or dispatch.
 - Use manual Riverpod `NotifierProvider`; do not use code generation.
-- Give the user a 10-second choice, with a cumulative 60-second cloud budget and at most two cloud attempts.
+- Give the user a 10-second choice, with a cumulative 60-second cloud budget and at most two cloud attempts. Attempt 1 uses `gemini-3.8-flash`; only documented transient failures wait 1,000–1,250ms and use `gemini-3.5-flash-lite` for attempt 2. Both cloud failures lead to the existing local-OCR/recapture choice.
+- Pinned `firebase_ai 3.10.0` hides structured status/header data for some 408/429 responses. Retry classification therefore has one narrow adapter exception for official status tokens/messages; unknown messages remain nonretryable, UI copy never includes them, and a dependency upgrade must revalidate or remove this exception.
 - The repository intentionally tracks a dedicated revocable Android assignment
   keystore/properties and one iOS App Check debug token for evaluator setup
   convenience. This is a user-approved take-home exception, not production

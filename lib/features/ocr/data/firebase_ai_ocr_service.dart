@@ -22,10 +22,12 @@ final class FirebaseModelRequest {
   const FirebaseModelRequest({
     required this.imageBytes,
     required this.mimeType,
+    this.cloudAttempt = CloudOcrAttempt.primary,
   });
 
   final Uint8List imageBytes;
   final String mimeType;
+  final CloudOcrAttempt cloudAttempt;
 }
 
 enum FirebaseModelFinishReason { safety, recitation }
@@ -92,7 +94,8 @@ final class FirebaseSdkModelGateway implements FirebaseModelGateway {
   }) : _appCheckProvider =
            appCheckProvider ?? (() => FirebaseAppCheck.instance);
 
-  static const modelName = 'gemini-3.8-flash';
+  static const primaryModelName = 'gemini-3.8-flash';
+  static const fallbackModelName = 'gemini-3.5-flash-lite';
   static const _transcriptionPrompt = '''
 Transcribe only the visible text in this image.
 Preserve the original line breaks exactly.
@@ -112,6 +115,10 @@ Otherwise return status "noReadableText" and omit "text" or set it to null or an
 
   @override
   Future<FirebaseModelResponse> generate(FirebaseModelRequest request) async {
+    final modelName = switch (request.cloudAttempt) {
+      CloudOcrAttempt.primary => primaryModelName,
+      CloudOcrAttempt.fallback => fallbackModelName,
+    };
     final config = GenerationConfig(
       responseMimeType: 'application/json',
       responseSchema: Schema.object(
@@ -177,7 +184,10 @@ final class FirebaseAiOcrService implements CloudOcrService {
   bool get configurationPending => gateway.configurationPending;
 
   @override
-  Future<OcrResult> recognize(String imagePath) async {
+  Future<OcrResult> recognize(
+    String imagePath, {
+    CloudOcrAttempt attempt = CloudOcrAttempt.primary,
+  }) async {
     try {
       final file = File(imagePath);
       final stat = await file.stat();
@@ -197,7 +207,11 @@ final class FirebaseAiOcrService implements CloudOcrService {
       }
 
       final response = await gateway.generate(
-        FirebaseModelRequest(imageBytes: bytes, mimeType: mimeType),
+        FirebaseModelRequest(
+          imageBytes: bytes,
+          mimeType: mimeType,
+          cloudAttempt: attempt,
+        ),
       );
       if (response.finishReason != null) {
         throw OcrFailure.of(OcrFailureKind.safetyOrRecitation);
@@ -223,13 +237,34 @@ final class FirebaseAiOcrService implements CloudOcrService {
       throw OcrFailure.transportTransient();
     } on FirebaseModelTransientException {
       throw OcrFailure.transportTransient();
-    } on ServerException {
+    } on ServerException catch (error) {
+      if (_isRetryableServerMessage(error.message)) {
+        throw OcrFailure.serviceTransient();
+      }
       throw OcrFailure.of(OcrFailureKind.service);
-    } on FirebaseAIException {
+    } on FirebaseAIException catch (error) {
+      if (_isRetryableHttpMessage(error.message)) {
+        throw OcrFailure.serviceTransient();
+      }
       throw OcrFailure.of(OcrFailureKind.service);
     } catch (_) {
       throw OcrFailure.of(OcrFailureKind.service);
     }
+  }
+
+  static bool _isRetryableServerMessage(String message) {
+    final normalized = message.trim().toUpperCase().replaceAll('_', ' ');
+    return RegExp(
+      r'^(RESOURCE EXHAUSTED|INTERNAL|UNAVAILABLE|DEADLINE EXCEEDED|'
+      r'REQUEST TIMEOUT|HTTP 408|408 REQUEST TIMEOUT|TOO MANY REQUESTS|'
+      r'RATE LIMIT EXCEEDED)(?:$|[:,.])',
+    ).hasMatch(normalized);
+  }
+
+  static bool _isRetryableHttpMessage(String message) {
+    final match = RegExp(r'Server Error \[(\d{3})\]').firstMatch(message);
+    final status = int.tryParse(match?.group(1) ?? '');
+    return status != null && (status == 408 || status >= 500);
   }
 
   OcrResult _parse(String? source) {

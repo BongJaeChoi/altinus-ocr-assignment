@@ -646,3 +646,60 @@ flowchart LR
 - Limits: The simulator does not prove camera hardware, permission/settings
   recovery, flash, physical App Check, device orientation, frame/memory/heat,
   or platform parity. Ten native OCR calls are not ten capture cycles.
+
+### 2026-09-29 — user + AI / 429 diagnosis and bounded model failover
+
+- Request/prompt: Determine why the evaluator could receive 429 instead of
+  blindly keeping the same client request, then implement a policy that avoids
+  making one exhausted model the single point of failure.
+- Console evidence: Firebase AI Logic monitoring showed 11 iOS requests in the
+  observed 24-hour window: 4 successful requests plus `RESOURCE_EXHAUSTED` and
+  `INTERNAL` failures. The Firebase AI Logic gateway quota was 100 requests per
+  minute per project/user/region and showed no current saturation. The Gemini
+  API quota page for the same Spark project showed a 20-request free-tier daily
+  limit for `gemini-3.8-flash`, a seven-day peak above 90%, and a daily reset
+  immediately after the latest 429 interval. This makes daily model quota the
+  best-supported explanation for that latest 429; earlier same-minute 429s
+  followed by successes remain consistent with transient capacity/rate events.
+  The same console showed a 500-request model-specific daily limit for
+  `gemini-3.5-flash-lite`. These different model limits do not remove Firebase
+  AI Logic's shared gateway limits.
+- Decision/result: Attempt 1 remains `gemini-3.8-flash`. Only transport, 408,
+  429/quota, and 5xx failures wait 1,000–1,250ms and use
+  `gemini-3.5-flash-lite` for attempt 2. Configuration, unsupported location,
+  safety/recitation, invalid input, and malformed responses stop after one
+  cloud call. A transaction still has a two-call and cumulative 60-second cap;
+  two failures produce the existing natural local-OCR/recapture choice with no
+  vendor, model, exception, status, or error-code disclosure.
+- SDK constraint: `firebase_ai 3.10.0` converts quota-containing messages to
+  `QuotaExceeded`, but otherwise exposes some sub-500 server errors only as a
+  `ServerException.message` and drops response headers/status. The adapter
+  therefore normalizes underscore/space variants and recognizes only a narrow
+  prefix allowlist of official retryable tokens/messages, including the
+  documented `Resource exhausted` form. Unknown messages remain nonretryable.
+  This is a pinned-SDK compatibility exception, not a general string-parsing
+  policy; dependency upgrades must re-check and preferably remove it.
+- Rejected/modified: Repeating `gemini-3.8-flash` after its daily limit was
+  rejected because it cannot recover the evaluator flow. Automatically running
+  local OCR without consent was rejected because the approved UX offers a
+  choice after cloud exhaustion. Calling both models concurrently, making a
+  third cloud call, enabling billing, adding raw HTTP/Dio, and exposing 429 or
+  internal errors were also rejected. The initial claim that model quotas were
+  fully independent was corrected: only the observed model-specific daily
+  limits differ; shared gateway quotas still apply.
+- Verification/evidence: TDD first failed on the missing attempt contract and
+  on Firebase's official space-separated 429 message. Focused controller,
+  adapter, domain, and widget suites then passed; the full Flutter suite passed
+  240 tests and fake integration passed 2 tests. Android debug/release, Android
+  unit/lint, and ASCII-path iOS debug/release no-codesign builds passed. Release
+  token containment passed. On an iPhone 14 Pro Max iOS 18.3 simulator, the
+  production Firebase/App Check bootstrap made a live
+  `gemini-3.5-flash-lite` request with a generated non-sensitive fixture and
+  returned a nonblank result. This proves fallback model/config/schema
+  compatibility, not physical-device camera or attestation.
+- Sources: Firebase AI Logic
+  [error codes](https://firebase.google.com/docs/ai-logic/error-codes),
+  [quota model](https://firebase.google.com/docs/ai-logic/quotas), and
+  [supported models](https://firebase.google.com/docs/ai-logic/models);
+  Gemini API [troubleshooting](https://ai.google.dev/gemini-api/docs/troubleshooting)
+  and [Gemini 3.5 Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite).

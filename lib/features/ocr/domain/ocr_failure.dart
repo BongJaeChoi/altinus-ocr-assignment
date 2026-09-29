@@ -27,7 +27,10 @@ final class OcrFailure implements Exception {
   factory OcrFailure.transportTransient() =>
       const OcrFailure._(OcrFailureKind.transportTransient, true);
 
-  factory OcrFailure.quota() => const OcrFailure._(OcrFailureKind.quota, false);
+  factory OcrFailure.quota() => const OcrFailure._(OcrFailureKind.quota, true);
+
+  factory OcrFailure.serviceTransient() =>
+      const OcrFailure._(OcrFailureKind.service, true);
 
   factory OcrFailure.invalidResponse() =>
       const OcrFailure._(OcrFailureKind.invalidResponse, false);

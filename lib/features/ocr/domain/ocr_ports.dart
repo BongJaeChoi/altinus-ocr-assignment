@@ -1,9 +1,14 @@
 import 'ocr_result.dart';
 
+enum CloudOcrAttempt { primary, fallback }
+
 abstract interface class CloudOcrService {
   bool get configurationPending;
 
-  Future<OcrResult> recognize(String imagePath);
+  Future<OcrResult> recognize(
+    String imagePath, {
+    CloudOcrAttempt attempt = CloudOcrAttempt.primary,
+  });
 }
 
 abstract interface class LocalOcrService {

@@ -233,6 +233,9 @@ void main() {
       final harness = await _pumpAtPreview(tester);
       await _beginCloudRecognition(tester, harness);
       harness.cloud.fail(0, OcrFailure.quota());
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(harness.cloud.requests, hasLength(2));
+      harness.cloud.fail(1, OcrFailure.quota());
       await tester.pump();
 
       expect(find.byKey(const ValueKey('use-local')), findsOneWidget);

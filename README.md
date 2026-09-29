@@ -11,7 +11,7 @@ flutter pub get
 flutter run -d <android-or-ios-device>
 ```
 
-기본 debug 실행은 별도 Firebase 설정 없이 전용 Spark 프로젝트의 App Check를 거쳐 `gemini-3.8-flash` 클라우드 OCR을 먼저 사용합니다. iPhone 실기기는 평가자의 Apple Development 서명 선택이 필요할 수 있습니다. Flutter 3.47의 혼합 SwiftPM/CocoaPods 초기화에서 깨끗한 iOS 체크아웃이 `Pods_Runner` 링크 오류를 한 번 보이면 아래 명령으로 native dependency를 먼저 생성한 뒤 다시 실행합니다.
+기본 debug 실행은 별도 Firebase 설정 없이 전용 Spark 프로젝트의 App Check를 거쳐 `gemini-3.8-flash` 클라우드 OCR을 먼저 사용합니다. 일시적 과부하·quota·timeout·5xx이면 약 1초 뒤 `gemini-3.5-flash-lite`로 한 번만 재시도합니다. iPhone 실기기는 평가자의 Apple Development 서명 선택이 필요할 수 있습니다. Flutter 3.47의 혼합 SwiftPM/CocoaPods 초기화에서 깨끗한 iOS 체크아웃이 `Pods_Runner` 링크 오류를 한 번 보이면 아래 명령으로 native dependency를 먼저 생성한 뒤 다시 실행합니다.
 
 ```bash
 flutter build ios --debug --no-codesign
@@ -47,7 +47,7 @@ OcrScreen (immutable UI)
 ```
 
 - **Flutter + 수동 Riverpod:** 하나의 상태/UI 흐름으로 플랫폼 패리티를 맞추고 `NotifierProvider` override로 외부 adapter를 격리합니다. 작은 과제에 state code generation 단계는 추가하지 않았습니다.
-- **Firebase AI Logic:** 공식 Flutter SDK, 구조화 JSON 응답, `gemini-3.8-flash`를 사용합니다. 이미지는 cloud로 전송되며 네트워크·서비스·쿼터 지연이 존재합니다. 활성 App Check 인스턴스를 AI client에 명시적으로 전달합니다.
+- **Firebase AI Logic:** 공식 Flutter SDK와 구조화 JSON 응답을 사용합니다. 첫 시도는 `gemini-3.8-flash`, 재시도 가능한 실패 뒤 마지막 한 번은 모델별 일일 한도가 더 큰 `gemini-3.5-flash-lite`입니다. Firebase gateway의 공유 제한까지 분리된다고 주장하지 않습니다. 이미지는 cloud로 전송되며 네트워크·서비스·quota 지연이 존재합니다. 활성 App Check 인스턴스를 AI client에 명시적으로 전달합니다.
 - **Pigeon + 공식 ML Kit:** raw method-channel payload 대신 생성된 typed Dart/Kotlin/Swift 경계를 사용합니다. Android `text-recognition-korean:16.0.1`, iOS `GoogleMLKit/TextRecognitionKorean: 8.0.0`을 앱에 번들해 오프라인 fallback을 제공합니다.
 - **공식 camera:** rear camera preview/capture와 lifecycle을 adapter 뒤에 둡니다. 실제 권한·방향·flash·성능은 플랫폼 실기기 검증이 필요합니다.
 - **제한된 이미지 준비:** isolate에서 방향, decode, 픽셀 수, 업로드 바이트를 제한합니다. 자동 deskew나 임의 보정은 과제 범위를 넘어 추가하지 않았습니다.
@@ -57,7 +57,7 @@ OcrScreen (immutable UI)
 ## OCR 흐름과 복구 정책
 
 1. 촬영 파일 ownership을 확보한 뒤 cloud OCR을 먼저 시작합니다.
-2. 하나의 transaction은 최대 두 번의 cloud attempt만 허용하며, 명확한 transient failure만 한 번 재시도합니다. 화면에는 `1/2`, `2/2`를 표시합니다.
+2. 하나의 transaction은 최대 두 번의 cloud attempt만 허용합니다. `408`, `429`/quota, `5xx`와 transport failure만 1,000–1,250ms 뒤 대체 모델로 한 번 재시도합니다. 구성·지역·safety/recitation·잘못된 입력·응답 계약 오류는 재시도하지 않습니다. 화면에는 `1/2`, `2/2`를 표시합니다.
 3. 이미지 준비부터 재시도까지 누적 cloud budget은 **60초**입니다. **10초**가 지나면 `기기에서 인식` 또는 `조금 더 기다리기`를 선택할 수 있습니다.
 4. cloud 오류의 기술 원인·코드·raw message는 화면에 노출하지 않습니다. 자연스러운 재촬영 또는 기기 OCR 전환만 제공합니다.
 5. 기기 OCR은 cloud와 병렬 실행하지 않습니다. 전환·마감 뒤 늦게 도착한 결과는 transaction ID로 무시합니다.
@@ -122,8 +122,11 @@ live cloud smoke는 개인 정보가 없는 생성 fixture만 사용합니다.
 flutter test integration_test/live_cloud_smoke_test.dart -d <device-id> \
   --dart-define=RUN_LIVE_OCR=true \
   --dart-define=OCR_DEVICE=<public-device-model> \
-  --dart-define=OCR_GIT_COMMIT=$(git rev-parse HEAD)
+  --dart-define=OCR_GIT_COMMIT=$(git rev-parse HEAD) \
+  --dart-define=OCR_CLOUD_ATTEMPT=primary
 ```
+
+대체 모델 자체를 검증할 때만 마지막 값을 `fallback`으로 바꿉니다.
 
 상세 원격 구성과 실행 증거는 `.superpowers/sdd/firebase-cloud-evidence-report.md`에 기록합니다.
 
@@ -133,8 +136,8 @@ flutter test integration_test/live_cloud_smoke_test.dart -d <device-id> \
 
 - **Used as-is:** 없음. 제안은 코드·테스트·공식 문서 또는 실제 build/run으로 확인한 뒤 채택했습니다.
 - **Adopted:** Riverpod transaction state machine, typed Pigeon boundary, cloud-first + sequential local fallback, 생성 fixture, App Check가 적용된 Firebase AI client.
-- **Modified:** 180초 watchdog 제안을 사용자 결정에 따라 누적 60초로 줄였고, 10초 시점에 계속 기다리기/기기 인식 선택을 제공했습니다. 단일 거대 구현 agent 대신 설계·bounded executor·review 역할을 분리했습니다.
-- **Rejected:** raw HTTP/Dio 중복 구현, 예외 문자열 기반 분기, 모든 CocoaPod 강제 static 전환, client Gemini key, billing 연결, 기술 오류 코드의 사용자 노출을 채택하지 않았습니다.
+- **Modified:** 180초 watchdog 제안을 사용자 결정에 따라 누적 60초로 줄였고, 10초 시점에 계속 기다리기/기기 인식 선택을 제공했습니다. 단일 거대 구현 agent 대신 설계·bounded executor·review 역할을 분리했습니다. `firebase_ai 3.10.0`이 408/429의 구조화된 상태·header를 공개하지 않는 한계 때문에, adapter 내부에서 공식 상태 토큰과 문구의 좁은 허용 목록만 분류합니다. 패키지 업그레이드 때 이 예외를 재검증합니다.
+- **Rejected:** raw HTTP/Dio 중복 구현, 광범위한 예외 문자열 추측, 모든 CocoaPod 강제 static 전환, client Gemini key, billing 연결, 기술 오류 코드의 사용자 노출을 채택하지 않았습니다.
 
 ## 남은 실기기 게이트
 
@@ -152,5 +155,6 @@ Android와 iPhone 각각에서 다음을 확인해야 physical parity나 flash-r
 - [과제 원문](https://github.com/git-artinus/artinus-fe-recurit/blob/cb7c0d5323e9c0f347253cf52c09594e18342ced/README.md)
 - [Flutter integration test](https://docs.flutter.dev/testing/integration-tests), [camera package](https://pub.dev/packages/camera), [Pigeon](https://pub.dev/packages/pigeon)
 - [Firebase AI Logic for Flutter](https://firebase.google.com/docs/ai-logic/get-started?api=dev&platform=flutter), [모델](https://firebase.google.com/docs/ai-logic/models), [가격](https://firebase.google.com/docs/ai-logic/pricing), [모니터링](https://firebase.google.com/docs/ai-logic/monitoring), [할당량](https://firebase.google.com/docs/ai-logic/quotas), [오류 코드](https://firebase.google.com/docs/ai-logic/error-codes)
+- [Gemini API 오류·재시도 지침](https://ai.google.dev/gemini-api/docs/troubleshooting), [Gemini 3.5 Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite)
 - [Firebase App Check debug provider](https://firebase.google.com/docs/app-check/flutter/debug-provider), [Play Integrity outside Google Play](https://firebase.google.com/docs/app-check/android/play-integrity-provider)
 - [ML Kit Android](https://developers.google.com/ml-kit/vision/text-recognition/v2/android), [ML Kit iOS](https://developers.google.com/ml-kit/vision/text-recognition/v2/ios)

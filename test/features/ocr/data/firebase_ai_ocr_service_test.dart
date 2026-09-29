@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:altinus_ocr/features/ocr/data/firebase_ai_ocr_service.dart';
 import 'package:altinus_ocr/features/ocr/domain/ocr_failure.dart';
+import 'package:altinus_ocr/features/ocr/domain/ocr_ports.dart';
 import 'package:altinus_ocr/features/ocr/domain/ocr_result.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_ai/firebase_ai.dart';
@@ -48,6 +49,7 @@ void main() {
       expect(result, isA<TextDetected>());
       expect((result as TextDetected).text, 'first\n\n second');
       expect(gateway.requests.single.mimeType, 'image/jpeg');
+      expect(gateway.requests.single.cloudAttempt, CloudOcrAttempt.primary);
       expect(gateway.requests.single.imageBytes, await imageFile.readAsBytes());
     });
 
@@ -249,6 +251,81 @@ void main() {
         );
       });
     }
+
+    test('quota is retryable so the controller can change model', () async {
+      gateway.error = QuotaExceeded('RESOURCE_EXHAUSTED');
+
+      await expectLater(
+        service.recognize(imageFile.path),
+        throwsA(
+          isA<OcrFailure>()
+              .having((failure) => failure.kind, 'kind', OcrFailureKind.quota)
+              .having((failure) => failure.isRetryable, 'isRetryable', isTrue),
+        ),
+      );
+    });
+
+    for (final error in <Object>[
+      ServerException('RESOURCE_EXHAUSTED'),
+      ServerException('Resource exhausted, please try again later.'),
+      ServerException('INTERNAL'),
+      ServerException('UNAVAILABLE'),
+      ServerException('DEADLINE_EXCEEDED'),
+      ServerException('HTTP 408'),
+      FirebaseAIException('Server Error [500]: private detail'),
+      FirebaseAIException('Server Error [503]: private detail'),
+    ]) {
+      test('${error.runtimeType} transient response is retryable', () async {
+        gateway.error = error;
+
+        await expectLater(
+          service.recognize(imageFile.path),
+          throwsA(
+            isA<OcrFailure>()
+                .having(
+                  (failure) => failure.kind,
+                  'kind',
+                  OcrFailureKind.service,
+                )
+                .having(
+                  (failure) => failure.isRetryable,
+                  'isRetryable',
+                  isTrue,
+                ),
+          ),
+        );
+      });
+    }
+
+    for (final error in <Object>[
+      ServerException('INVALID_ARGUMENT'),
+      ServerException('PERMISSION_DENIED'),
+      FirebaseAIException('Server Error [400]: private detail'),
+    ]) {
+      test(
+        '${error.runtimeType} permanent response is not retryable',
+        () async {
+          gateway.error = error;
+
+          await expectLater(
+            service.recognize(imageFile.path),
+            throwsA(
+              isA<OcrFailure>()
+                  .having(
+                    (failure) => failure.kind,
+                    'kind',
+                    OcrFailureKind.service,
+                  )
+                  .having(
+                    (failure) => failure.isRetryable,
+                    'isRetryable',
+                    isFalse,
+                  ),
+            ),
+          );
+        },
+      );
+    }
   });
 
   test(
@@ -303,9 +380,9 @@ void main() {
   );
 
   test(
-    'SDK gateway sends pinned model, low thinking, schema and prompt',
+    'SDK gateway maps primary and fallback attempts to pinned models',
     () async {
-      String? modelName;
+      final modelNames = <String>[];
       GenerationConfig? generationConfig;
       List<Content>? contents;
       final sdkGateway = FirebaseSdkModelGateway(
@@ -317,7 +394,7 @@ void main() {
               required config,
               required prompt,
             }) async {
-              modelName = model;
+              modelNames.add(model);
               generationConfig = config;
               contents = prompt;
               return GenerateContentResponse(<Candidate>[
@@ -340,8 +417,15 @@ void main() {
           mimeType: 'image/jpeg',
         ),
       );
+      await sdkGateway.generate(
+        FirebaseModelRequest(
+          imageBytes: Uint8List.fromList(<int>[0xff, 0xd8, 0xff]),
+          mimeType: 'image/jpeg',
+          cloudAttempt: CloudOcrAttempt.fallback,
+        ),
+      );
 
-      expect(modelName, 'gemini-3.8-flash');
+      expect(modelNames, <String>['gemini-3.8-flash', 'gemini-3.5-flash-lite']);
       expect(generationConfig!.responseMimeType, 'application/json');
       expect(
         generationConfig!.thinkingConfig!.thinkingLevel,

@@ -12,11 +12,16 @@ final class ControllableCloudOcrService implements CloudOcrService {
   @override
   final bool configurationPending;
   final List<String> paths = [];
+  final List<CloudOcrAttempt> attempts = [];
   final List<Completer<OcrResult>> requests = [];
 
   @override
-  Future<OcrResult> recognize(String imagePath) {
+  Future<OcrResult> recognize(
+    String imagePath, {
+    CloudOcrAttempt attempt = CloudOcrAttempt.primary,
+  }) {
     paths.add(imagePath);
+    attempts.add(attempt);
     final request = Completer<OcrResult>();
     requests.add(request);
     return request.future;
