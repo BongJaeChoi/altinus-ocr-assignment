@@ -69,7 +69,7 @@ OcrScreen (immutable UI)
 | Gate | 관찰 결과 |
 | --- | --- |
 | `flutter pub get`, Pigeon 재생성, 생성물 diff | PASS — 생성 Dart/Kotlin/Swift diff 없음 |
-| `dart format --output=none --set-exit-if-changed lib test integration_test pigeons` | PASS |
+| handwritten Dart format (`lib/src/generated` 제외) | PASS — 43 files, 0 changed |
 | `flutter test` | PASS — 213 tests |
 | `flutter analyze` (현재 한글 상위 경로) | BLOCKED/FAIL — 분석 전에 LSP `FormatException: Unterminated string`; 아래 ASCII 경로 검증 사용 |
 | `flutter build apk --debug` | PASS — Gradle strict lock 적용 상태 |
@@ -79,7 +79,7 @@ OcrScreen (immutable UI)
 
 원본 작업 경로의 한글 상위 디렉터리는 Flutter analyzer LSP framing과 Xcode SwiftPM percent-encoding을 깨뜨립니다. 소스를 변경하거나 Xcode를 우회 수정하지 않고, **ASCII 전용 임시 clone**에서 같은 Flutter SDK로 분석·테스트·Android/iOS build를 실행합니다.
 
-기존 release 증거에 더해 pre-release 변경은 ASCII 임시 clone(`ARTINUS_CLONE_DIR`)에서 다시 검증합니다. 생성 Pigeon Dart/Kotlin/Swift는 29.0.4 출력 그대로이며 재생성 byte diff가 없습니다. 생성기가 남기는 trailing spaces는 손으로 고치지 않았고, whitespace 검사는 handwritten source 범위에만 적용합니다. Gradle lock은 app-resolved 구성과 Flutter assemble에 필요한 runtime 구성을 포함하며 지원되는 `:app:dependencies --write-locks`로 생성했습니다. Xcode가 생성한 Runner project/workspace `Package.resolved`는 서로 같은 해시이고 `xcodebuild -resolvePackageDependencies` 뒤에도 유지됩니다. CocoaPods `Podfile.lock`도 유지합니다.
+기존 release 증거에 더해 pre-release 문서 커밋 `7ac0e93046bbbf61f12e4b13237547053873aa73`을 ASCII 임시 clone(`ARTINUS_CLONE_DIR`)에서 다시 검증했습니다. Pigeon 재생성, analyze, 213-test suite, 2 fake integration tests, strict-lock Android debug build와 app test/lint, iOS debug no-codesign build가 PASS했고 build/resolve 뒤 tracked tree도 clean이었습니다. 생성 Pigeon Dart/Kotlin/Swift는 29.0.4 출력 그대로이며 재생성 byte diff가 없습니다. 생성기가 남기는 trailing spaces는 손으로 고치지 않았고, whitespace 검사는 handwritten source 범위에만 적용합니다. Gradle lock은 app-resolved 구성과 Flutter assemble에 필요한 runtime 구성을 포함하며 지원되는 `:app:dependencies --write-locks`로 생성했습니다. Xcode가 생성한 Runner project/workspace `Package.resolved`는 서로 같은 해시이고 `xcodebuild -resolvePackageDependencies` 뒤에도 유지됩니다. CocoaPods `Podfile.lock`도 유지합니다.
 
 개발/재현 명령은 다음과 같습니다.
 
