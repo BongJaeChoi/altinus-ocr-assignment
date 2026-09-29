@@ -83,6 +83,17 @@ Clone source: `7ac0e93046bbbf61f12e4b13237547053873aa73` at `/tmp/artinus-pre-re
 
 Pigeon 29.0.4 currently emits trailing spaces in four Dart constructor parameter lines. They are generated-only, regeneration is byte-stable, and they were not hand-edited. A full-range whitespace claim would therefore be misleading; the recorded whitespace gate covers handwritten source only.
 
+### Independent-review follow-up verification
+
+Fresh ASCII clone source: `f990237a1e8df81173ff948ab270aa31349fda60` at `/tmp/artinus-direct-local-final.sLgqH3/artinus-ocr` (ephemeral evidence path).
+
+- Pigeon regeneration produced no generated diff; `flutter analyze` reported no issues in 4.0 seconds.
+- Full Flutter suite passed 216; fake integration passed 2.
+- Android debug APK built successfully with default-mode dependency lock validation.
+- `:app:dependencies --write-locks` preserved SHA-256 `dc93b92fae0976f297e6978f1c8392a326bd5b21eef205817c6274d37e4115ec`.
+- `:app:resolvableConfigurations` names: 57; generated lock-state names: 57; only-resolvable: 0; only-locked: 0.
+- Generation, build, and lock regeneration left tracked contents clean.
+
 ## Remaining release gates
 
 1. An authorized Firebase project, mobile app configuration, model/quota/location, and live cloud run; App Check dependencies are transitively packaged, but activation, token-provider use, and enforcement remain intentionally unconfigured in the evaluation build.

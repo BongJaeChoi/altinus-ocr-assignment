@@ -70,7 +70,7 @@ OcrScreen (immutable UI)
 | --- | --- |
 | `flutter pub get`, Pigeon 재생성, 생성물 diff | PASS — 생성 Dart/Kotlin/Swift diff 없음 |
 | handwritten Dart format (`lib/src/generated` 제외) | PASS — 43 files, 0 changed |
-| `flutter test` | PASS — 214 tests (final-review follow-up 포함) |
+| `flutter test` | PASS — 216 tests (independent-review follow-up 포함) |
 | `flutter analyze` (현재 한글 상위 경로) | BLOCKED/FAIL — 분석 전에 LSP `FormatException: Unterminated string`; 아래 ASCII 경로 검증 사용 |
 | `flutter build apk --debug` | PASS — Gradle 기본 모드 dependency lock validation 적용 상태 |
 | Android `:app:testDebugUnitTest :app:lintDebug` | PASS |
@@ -80,6 +80,8 @@ OcrScreen (immutable UI)
 원본 작업 경로의 한글 상위 디렉터리는 Flutter analyzer LSP framing과 Xcode SwiftPM percent-encoding을 깨뜨립니다. 소스를 변경하거나 Xcode를 우회 수정하지 않고, **ASCII 전용 임시 clone**에서 같은 Flutter SDK로 분석·테스트·Android/iOS build를 실행합니다.
 
 기존 release 증거에 더해 pre-release 문서 커밋 `7ac0e93046bbbf61f12e4b13237547053873aa73`을 ASCII 임시 clone(`ARTINUS_CLONE_DIR`)에서 다시 검증했습니다. Pigeon 재생성, analyze, 213-test suite, 2 fake integration tests, 기본 모드 Gradle dependency lock validation 상태의 Android debug build와 app test/lint, iOS debug no-codesign build가 PASS했고 build/resolve 뒤 tracked tree도 clean이었습니다. 생성 Pigeon Dart/Kotlin/Swift는 29.0.4 출력 그대로이며 재생성 byte diff가 없습니다. 생성기가 남기는 trailing spaces는 손으로 고치지 않았고, whitespace 검사는 handwritten source 범위에만 적용합니다. Gradle `LockMode.STRICT`는 설정하지 않았습니다. 기본 모드는 기록된 lock state를 resolution 제약으로 검증하며, STRICT는 여기에 “locked configuration에 state가 없으면 실패”를 추가합니다. 현재 `:app:resolvableConfigurations`의 57개 이름과 `gradle.lockfile`의 configuration 이름 57개는 완전히 일치합니다. 잠금은 지원되는 `:app:dependencies --write-locks`로 생성했습니다. Xcode가 생성한 Runner project/workspace `Package.resolved`는 서로 같은 해시이고 `xcodebuild -resolvePackageDependencies` 뒤에도 유지됩니다. CocoaPods `Podfile.lock`도 유지합니다.
+
+직행-path 후속 문서 커밋 `f990237a1e8df81173ff948ab270aa31349fda60`의 새 ASCII clone에서도 Pigeon diff 0, analyze 0 issues, Flutter 216 tests, fake integration 2 tests, Android debug build가 PASS했습니다. Gradle lock 재생성 전후 SHA-256은 모두 `dc93b92fae0976f297e6978f1c8392a326bd5b21eef205817c6274d37e4115ec`였고 57/57 configuration 집합의 양방향 차집합은 0, tracked diff도 0이었습니다.
 
 개발/재현 명령은 다음과 같습니다.
 
