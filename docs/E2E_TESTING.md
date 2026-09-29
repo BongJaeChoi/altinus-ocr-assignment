@@ -45,7 +45,7 @@ Example exploratory run:
 
 ```bash
 uv run artemis run \
-  "Open the Altinus OCR app, grant camera permission, verify preview, capture printed text, wait for OCR, verify non-empty result, then retry" \
+  "Open the ARTINUS OCR app, grant camera permission, verify preview, capture printed text, wait for OCR, verify non-empty result, then retry" \
   --profile flash
 ```
 

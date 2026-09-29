@@ -7,7 +7,7 @@ DONE_WITH_GATES. No external delivery action was performed.
 ## Delivered
 
 - Created evaluator-focused `README.md` from the pinned assignment, code, lockfiles, task reports, and fresh command evidence only.
-- Appended the Task 13 decision and verification record to `docs/AI_PROMPT_LOG.md` without credentials, image bytes, recognized text, raw model responses, or local paths.
+- Appended the Task 13 decision and verification record to `docs/AI_PROMPT_LOG.md` without credentials, image bytes, recognized text, raw model responses, or local image paths.
 - Clearly states that the default checkout uses `FirebaseConfigurationPendingGateway`; cloud OCR is neither configured nor live verified.
 - Preserves flash code and marks it unproven. Task 13 does not remove flash; the root release decision must decide hide/remove after actual two-platform evidence.
 
@@ -45,7 +45,18 @@ The original-path failures reproduce the documented tooling defect, not a code w
 | `flutter build ios --release --no-codesign` | PASS — `Runner.app` reported 68.8MB |
 | `scripts/check_context_budget.sh`, `git diff --check`, `git diff --exit-code` | PASS |
 
-Xcode created two untracked SwiftPM workspace metadata directories after the iOS build; no tracked file changed. The observed directory/APK sizes are not archive/store sizes, and debug/release outputs are intentionally reported separately.
+The fresh clone's tracked tree was clean (`git diff --check` and `git diff --exit-code` passed). `git status --porcelain --untracked-files=all` showed two Xcode-created untracked SwiftPM workspace metadata directories after the iOS build; no tracked file changed. The observed directory/APK sizes are not archive/store sizes, and debug/release outputs are intentionally reported separately.
+
+## Root-review follow-up
+
+- Evaluator-visible identity now consistently uses `ARTINUS OCR`: README, Flutter app bar copy, Android application label, and iOS display name. Internal package/class/bundle identifiers intentionally remain `altinus_ocr`/`AltinusOcrApp` to avoid unrelated integration churn.
+- Added a widget assertion for the visible title. It first failed while the app rendered `Altinus OCR`, then passed after the copy change.
+- README now states the intentional unconfigured evaluator flow: capture → typed configuration recovery → `기기에서 인식`; it does not present cloud success as expected until Firebase is authorized and configured.
+- README temporary-file wording now matches the controller: canonical input may remain at a cloud result for local re-recognition; recapture and controller disposal clean owned transaction files; startup sweep is limited to prefixed derivatives in the cache root and never sweeps camera root.
+- Task 12 Android/iPhone live commands now require `RUN_LIVE_OCR=true`, exact `OCR_DEVICE`, and `OCR_GIT_COMMIT` values from `git rev-parse HEAD`.
+- AI-use labels now explicitly state Used as-is: none, and separately document the verified fixed-clock and `TextPainter.dispose()` corrections.
+
+Fresh follow-up verification: the title test RED showed no `ARTINUS OCR` widget; focused `flutter test test/app_smoke_test.dart` passed 3 tests after the change; full `flutter test` passed 200 tests. Pigeon regeneration stayed stable. Android debug build passed in the original worktree. In an ASCII-path copy, `flutter analyze` passed with no issues and iOS debug no-codesign built `Runner.app`. The final review range is `be032cf..HEAD`; Task 13 commits are `766f8ad`, `cca0e7b`, `99bad2c`, and the commits represented by that final range.
 
 ## Remaining gates
 

@@ -25,6 +25,7 @@ void main() {
       ),
     );
     expect(find.byType(MaterialApp), findsOneWidget);
+    expect(find.text('ARTINUS OCR'), findsOneWidget);
   });
 
   test('production defaults compose every synchronous adapter', () {

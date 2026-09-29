@@ -1,5 +1,5 @@
 abstract final class OcrCopy {
-  static const appTitle = 'Altinus OCR';
+  static const appTitle = 'ARTINUS OCR';
   static const disclosureTitle = '카메라 사용 안내';
   static const disclosureBody =
       '글자를 촬영하기 위해 카메라를 사용합니다. '

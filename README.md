@@ -1,4 +1,4 @@
-# Altinus Camera OCR
+# ARTINUS Camera OCR
 
 Flutter로 만든 카메라 OCR 과제입니다. 후면 카메라로 정지 이미지를 촬영하고 OCR 결과를 **읽기 전용**으로 보여 줍니다. 과제 원문의 필수 흐름(프리뷰 → 촬영 → OCR → 표시), iOS/Android 패리티, 비동기 처리, 나쁜 입력·권한·OCR 오류 대응, 그리고 AI 사용 근거를 목표로 합니다. [원문 과제](https://github.com/git-artinus/artinus-fe-recurit/blob/cb7c0d5323e9c0f347253cf52c09594e18342ced/README.md)
 
@@ -20,6 +20,10 @@ flutter run -d <android-or-ios-device>
 ```
 
 Firebase를 임의로 만들거나 설정하지 마세요. 승인된 기존 프로젝트가 제공된 뒤에만 `flutterfire configure`와 Firebase 초기화를 추가하고, 양 실기기에서 `RUN_LIVE_OCR=true` smoke test를 실행해야 합니다.
+
+### Firebase 없는 평가 모드
+
+기본 checkout은 Firebase를 초기화하지 않습니다. 따라서 평가자가 확인할 의도된 흐름은 **촬영 → `configuration` recovery UI → `기기에서 인식`**입니다. 이때 local 선택은 Pigeon을 거쳐 기기에 번들된 Korean ML Kit으로 전환합니다. Firebase 프로젝트가 승인·설정될 때까지 cloud 성공은 기대 결과가 아니며, cloud-ready라고 주장하지 않습니다.
 
 ## 구현 구성
 
@@ -45,7 +49,7 @@ OcrScreen (immutable UI)
 ### 개인정보 및 임시 파일
 
 - 첫 실행에서 카메라 사용 목적, cloud 전송, 영구 로컬 저장을 하지 않는다는 고지를 보여 줍니다.
-- 캡처 원본은 현재 transaction의 재시도/local 전환에만 유지하고, 재촬영·결과 종료·dispose·제한된 시작 정리에서 앱 소유 임시 파일만 삭제합니다. 갤러리 저장과 OCR 이력은 없습니다.
+- 캡처 원본(canonical)은 cloud 결과 화면에서도 사용자가 `기기에서 인식`을 선택할 수 있도록 유지될 수 있습니다. 재촬영과 controller dispose에서 해당 transaction의 소유 파일을 정리합니다. 시작 시 sweep은 앱 cache root의 `altinus_ocr_` 접두 derivative 파일만 대상으로 하며, camera root를 sweep하지 않습니다. 갤러리 저장과 OCR 이력은 없습니다.
 - 로그에는 이미지, 인식 텍스트, raw 모델 응답, 자격 증명, 로컬 경로를 기록하지 않습니다.
 - 이 정책은 코드와 deterministic test로 확인한 동작입니다. 외부 cloud 사업자의 보존 정책이나 실제 기기 파일 수명은 live/device 검증 전에는 주장하지 않습니다.
 
@@ -65,11 +69,15 @@ OcrScreen (immutable UI)
 
 원본 작업 경로의 한글 상위 디렉터리는 Flutter analyzer LSP framing과 Xcode SwiftPM percent-encoding을 깨뜨립니다. 소스를 변경하거나 Xcode를 우회 수정하지 않고, **ASCII 전용 임시 clone**에서 같은 Flutter SDK로 분석·테스트·Android/iOS build를 실행합니다.
 
-첫 README 커밋 `766f8adcec2c4d8811c23a333cc68962afaa0d1e`을 `/private/tmp/altinus-task13-clone.hTu5St/altinus-ocr`에 새로 clone해 다음을 확인했습니다: `flutter pub get`, Pigeon 재생성 후 `git diff --exit-code`, `flutter analyze`(4.3초), `flutter test`(200 tests), Android debug build, iOS debug no-codesign build 모두 PASS. 관찰한 universal debug APK는 **189M**, iOS debug `Runner.app` 디렉터리는 **171M**였습니다. iOS build 뒤 Xcode가 생성한 untracked SwiftPM workspace metadata 두 항목은 있었지만, 추적 파일 diff는 없었습니다. 같은 ASCII clone의 release도 Android universal APK **84.5MB**, iOS `Runner.app` **68.8MB**로 PASS했습니다. 이는 archive/store 크기나 실기기 실행 증명이 아닙니다.
+첫 README 커밋 `766f8adcec2c4d8811c23a333cc68962afaa0d1e`을 ASCII 임시 clone(`ARTINUS_CLONE_DIR`)에서 새로 확인했습니다: `flutter pub get`, Pigeon 재생성 후 `git diff --exit-code`, `flutter analyze`(4.3초), `flutter test`(200 tests), Android debug build, iOS debug no-codesign build 모두 PASS. 관찰한 universal debug APK는 **189M**, iOS debug `Runner.app` 디렉터리는 **171M**였습니다. iOS build 뒤 `git status --porcelain --untracked-files=all`은 Xcode가 생성한 SwiftPM workspace metadata 두 디렉터리만 보였고, tracked tree는 clean이며 `git diff --exit-code`도 PASS했습니다. 같은 ASCII clone의 release도 Android universal APK **84.5MB**, iOS `Runner.app` **68.8MB**로 PASS했습니다. 이는 archive/store 크기나 실기기 실행 증명이 아닙니다.
 
 개발/재현 명령은 다음과 같습니다.
 
 ```bash
+ARTINUS_CLONE_ROOT="$(mktemp -d /tmp/artinus-ocr.XXXXXX)"
+ARTINUS_CLONE_DIR="$ARTINUS_CLONE_ROOT/artinus-ocr"
+git clone . "$ARTINUS_CLONE_DIR"
+cd "$ARTINUS_CLONE_DIR"
 flutter pub get
 dart run pigeon --input pigeons/platform_apis.dart
 git diff --exit-code
@@ -85,8 +93,10 @@ flutter build ios --debug --no-codesign
 
 상세한 append-only 기록은 [docs/AI_PROMPT_LOG.md](docs/AI_PROMPT_LOG.md)에 있습니다. 요약:
 
-- **Adopted:** AI 보조로 Riverpod transaction state machine, typed Pigeon Korean OCR/settings 경계, 생성 가능한 고정 이미지 fixture를 만들고 RED→GREEN 테스트·코드 리뷰로 채택했습니다.
-- **Modified:** full-flow E2E가 wall clock에 의존한다는 review를 받아 고정 UTC clock override와 `TextPainter.dispose()`를 추가한 뒤 재검증했습니다.
+- **Used as-is:** 없음. AI 결과는 모두 코드·테스트·리뷰로 확인하거나 수정한 뒤에만 채택했습니다.
+- **Adopted:** 검증 가능한 Riverpod transaction state machine, typed Pigeon Korean OCR/settings 경계, 생성 가능한 fixed-image fixture 접근을 RED→GREEN 테스트와 리뷰를 거쳐 채택했습니다.
+- **Modified / verified — fixed clock:** review가 full-flow E2E의 `DateTime.now` 의존을 지적했고, 고정 UTC clock override를 주입했습니다. `fake_flow_test.dart` 1/1 통과로 wall-clock 의존 제거를 확인했습니다.
+- **Modified / verified — fixture disposal:** root review가 생성 fixture의 `TextPainter` dispose 누락을 지적했고, `finally`에서 dispose하도록 바꿨습니다. 전체 200-test suite 재실행으로 확인했습니다.
 - **Rejected:** 예외 메시지로 HTTP 상태를 추론하거나 raw `HttpClient`/불필요한 Dio를 넣는 제안, 모든 CocoaPod의 static framework 전환(중복 심볼), Firebase 프로젝트·billing·App Check의 임의 변경을 거절했습니다.
 
 ## 남은 release gates

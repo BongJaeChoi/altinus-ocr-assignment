@@ -766,8 +766,13 @@ Record model/OS/ID/commit. With no iPhone, mark iOS real-device proof blocked; d
 ```bash
 ALTINUS_ANDROID_DEVICE_ID="$(flutter devices --machine | jq -r '.[] | select(.targetPlatform | startswith("android")) | .id' | head -1)"
 test -n "$ALTINUS_ANDROID_DEVICE_ID"
+ARTINUS_LIVE_COMMIT="$(git rev-parse HEAD)"
+ARTINUS_ANDROID_LABEL='set the exact Android model/label recorded for this run'
 flutter test integration_test/native_ocr_smoke_test.dart -d "$ALTINUS_ANDROID_DEVICE_ID"
-flutter test integration_test/live_cloud_smoke_test.dart -d "$ALTINUS_ANDROID_DEVICE_ID" --dart-define=RUN_LIVE_OCR=true
+flutter test integration_test/live_cloud_smoke_test.dart -d "$ALTINUS_ANDROID_DEVICE_ID" \
+  --dart-define=RUN_LIVE_OCR=true \
+  --dart-define="OCR_DEVICE=$ARTINUS_ANDROID_LABEL" \
+  --dart-define="OCR_GIT_COMMIT=$ARTINUS_LIVE_COMMIT"
 flutter run --profile -d "$ALTINUS_ANDROID_DEVICE_ID"
 ```
 
@@ -778,8 +783,13 @@ Manually/with ARTEMIS verify disclosure, grant/deny/settings, preview, capture, 
 ```bash
 ALTINUS_IOS_DEVICE_ID="$(flutter devices --machine | jq -r '.[] | select(.targetPlatform | startswith("ios")) | .id' | head -1)"
 test -n "$ALTINUS_IOS_DEVICE_ID"
+ARTINUS_LIVE_COMMIT="$(git rev-parse HEAD)"
+ARTINUS_IOS_LABEL='set the exact iPhone model/label recorded for this run'
 flutter test integration_test/native_ocr_smoke_test.dart -d "$ALTINUS_IOS_DEVICE_ID"
-flutter test integration_test/live_cloud_smoke_test.dart -d "$ALTINUS_IOS_DEVICE_ID" --dart-define=RUN_LIVE_OCR=true
+flutter test integration_test/live_cloud_smoke_test.dart -d "$ALTINUS_IOS_DEVICE_ID" \
+  --dart-define=RUN_LIVE_OCR=true \
+  --dart-define="OCR_DEVICE=$ARTINUS_IOS_LABEL" \
+  --dart-define="OCR_GIT_COMMIT=$ARTINUS_LIVE_COMMIT"
 flutter run --profile -d "$ALTINUS_IOS_DEVICE_ID"
 ```
 
