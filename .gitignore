@@ -5,6 +5,8 @@
 .packages
 build/
 coverage/
+.worktrees/
+.superpowers/
 
 # IDE / OS
 .idea/
