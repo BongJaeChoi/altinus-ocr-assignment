@@ -246,11 +246,14 @@ void main() {
           tester,
           cloudConfigurationPending: true,
         );
-        await _beginCloudRecognition(tester, harness);
-
-        harness.cloud.fail(0, OcrFailure.of(OcrFailureKind.configuration));
+        await tester.tap(find.byKey(const ValueKey('capture')));
+        await tester.pump();
+        harness.camera.completeCapture(0, '/temporary/photo.jpg');
+        await tester.pump();
         await tester.pump();
 
+        expect(harness.cloud.requests, isEmpty);
+        expect(harness.preparer.canonicalPaths, isEmpty);
         expect(harness.local.requests, hasLength(1));
         expect(find.byKey(const ValueKey('use-local')), findsNothing);
         expect(find.text(OcrCopy.cloudRecovery), findsNothing);

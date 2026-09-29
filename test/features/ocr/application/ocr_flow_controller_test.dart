@@ -619,6 +619,119 @@ void main() {
     });
   });
 
+  group('pending configuration direct local path', () {
+    test('bypasses cloud state, held preparation, and cloud budget', () {
+      fakeAsync((async) {
+        final harness = _Harness(
+          async,
+          cloudConfigurationPending: true,
+          prepareImmediately: false,
+        );
+        final observed = <OcrFlowState>[];
+        final observer = harness.container.listen<OcrFlowState>(
+          ocrFlowControllerProvider,
+          (_, next) => observed.add(next),
+        );
+
+        harness.startCapture(async);
+
+        expect(observed.whereType<RecognizingCloud>(), isEmpty);
+        expect(harness.preparer.canonicalPaths, isEmpty);
+        expect(harness.preparer.preparations, isEmpty);
+        expect(harness.cloud.requests, isEmpty);
+        expect(harness.local.paths, ['/owned/capture-1.jpg']);
+        expect(harness.state, isA<RecognizingLocal>());
+
+        async.elapse(const Duration(seconds: 60));
+        expect(harness.state, isA<RecognizingLocal>());
+        harness.local.complete(0, OcrResult.textDetected('local result'));
+        async.flushMicrotasks();
+
+        final result = harness.state as OcrSuccess;
+        expect(result.text, 'local result');
+        expect(result.engine, OcrEngine.local);
+        observer.close();
+        harness.dispose(async);
+      });
+    });
+
+    test('bypasses a failing preparer and surfaces local failure', () {
+      fakeAsync((async) {
+        final harness = _Harness(
+          async,
+          cloudConfigurationPending: true,
+          prepareError: StateError('preparer must stay unreachable'),
+        )..startCapture(async);
+
+        expect(harness.preparer.canonicalPaths, isEmpty);
+        expect(harness.cloud.requests, isEmpty);
+        expect(harness.local.requests, hasLength(1));
+
+        harness.local.fail(0, StateError('private local detail'));
+        async.flushMicrotasks();
+
+        final recovery = harness.state as RecoverableError;
+        expect(recovery.failure.kind, OcrFailureKind.recognizer);
+        harness.dispose(async);
+      });
+    });
+
+    test('recapture cleans once and ignores a late local completion', () {
+      fakeAsync((async) {
+        final harness = _Harness(async, cloudConfigurationPending: true)
+          ..startCapture(async);
+        expect(harness.local.requests, hasLength(1));
+
+        unawaited(harness.controller.recapture());
+        async.flushMicrotasks();
+        expect(harness.state, isA<PreviewReady>());
+        expect(
+          harness.files.cleanedPaths.where(
+            (path) => path == '/owned/capture-1.jpg',
+          ),
+          hasLength(1),
+        );
+
+        harness.local.complete(0, OcrResult.textDetected('local late'));
+        async.flushMicrotasks();
+
+        expect(harness.state, isA<PreviewReady>());
+        expect(
+          harness.files.cleanedPaths.where(
+            (path) => path == '/owned/capture-1.jpg',
+          ),
+          hasLength(1),
+        );
+        harness.dispose(async);
+      });
+    });
+
+    test('dispose cleans once and contains a late local completion', () {
+      fakeAsync((async) {
+        final harness = _Harness(async, cloudConfigurationPending: true)
+          ..startCapture(async);
+        expect(harness.local.requests, hasLength(1));
+
+        harness.dispose(async);
+        expect(
+          harness.files.cleanedPaths.where(
+            (path) => path == '/owned/capture-1.jpg',
+          ),
+          hasLength(1),
+        );
+
+        harness.local.complete(0, OcrResult.textDetected('local late'));
+        async.flushMicrotasks();
+        expect(
+          harness.files.cleanedPaths.where(
+            (path) => path == '/owned/capture-1.jpg',
+          ),
+          hasLength(1),
+        );
+      });
+    });
+  });
+
   group('cloud timing and retry policy', () {
     test('9.999 seconds stays active and 10 seconds presents one choice', () {
       fakeAsync((async) {
@@ -712,42 +825,6 @@ void main() {
         final recovery = harness.state as CloudRecovery;
         expect(recovery.failure.kind, OcrFailureKind.quota);
         expect(harness.cloud.requests, hasLength(1));
-        harness.dispose(async);
-      });
-    });
-
-    test('pending cloud configuration continues directly with local OCR', () {
-      fakeAsync((async) {
-        final harness = _Harness(async, cloudConfigurationPending: true)
-          ..startCloud(async);
-
-        harness.cloud.fail(0, OcrFailure.of(OcrFailureKind.configuration));
-        async.flushMicrotasks();
-
-        expect(harness.state, isA<RecognizingLocal>());
-        expect(harness.local.paths, ['/owned/capture-1.jpg']);
-        harness.local.complete(0, OcrResult.textDetected('local result'));
-        async.flushMicrotasks();
-
-        final success = harness.state as OcrSuccess;
-        expect(success.text, 'local result');
-        expect(success.engine, OcrEngine.local);
-        expect(harness.cloud.requests, hasLength(1));
-        harness.dispose(async);
-      });
-    });
-
-    test('pending capability does not auto-fallback a service failure', () {
-      fakeAsync((async) {
-        final harness = _Harness(async, cloudConfigurationPending: true)
-          ..startCloud(async);
-
-        harness.cloud.fail(0, OcrFailure.of(OcrFailureKind.service));
-        async.flushMicrotasks();
-
-        final recovery = harness.state as CloudRecovery;
-        expect(recovery.failure.kind, OcrFailureKind.service);
-        expect(harness.local.paths, isEmpty);
         harness.dispose(async);
       });
     });
@@ -1622,6 +1699,7 @@ final class _Harness {
     Object? hasAcceptedError,
     Object? disclosureAcceptError,
     bool prepareImmediately = true,
+    Object? prepareError,
     bool cleanupImmediately = true,
     bool holdCleanupOrphans = false,
     Object? cleanupError,
@@ -1642,6 +1720,7 @@ final class _Harness {
        ),
        preparer = ControllableImagePreparer(
          completeImmediately: prepareImmediately,
+         prepareError: prepareError,
        ),
        files = RecordingTransactionFiles(
          completeImmediately: cleanupImmediately,

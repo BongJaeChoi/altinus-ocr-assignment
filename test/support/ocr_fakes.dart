@@ -226,15 +226,22 @@ final class MemoryDisclosureStore implements DisclosureStore {
 }
 
 final class ControllableImagePreparer implements ImagePreparer {
-  ControllableImagePreparer({this.completeImmediately = true});
+  ControllableImagePreparer({
+    this.completeImmediately = true,
+    this.prepareError,
+  });
 
   bool completeImmediately;
+  Object? prepareError;
   final List<String> canonicalPaths = [];
   final List<Completer<PreparedImage>> preparations = [];
 
   @override
   Future<PreparedImage> prepare(String canonicalPath) {
     canonicalPaths.add(canonicalPath);
+    if (prepareError case final error?) {
+      return Future<PreparedImage>.error(error);
+    }
     if (completeImmediately) {
       return Future.value(
         PreparedImage(

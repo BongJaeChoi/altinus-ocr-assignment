@@ -174,6 +174,12 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
       _activeFileOwnerId = fileOwnerId;
       _retainedCanonicalOwnerId = fileOwnerId;
       _canonicalPath = image.path;
+      if (_cloudOcr.configurationPending) {
+        // This capability describes composition, not an OCR error: a pending
+        // gateway has no cloud request to prepare or dispatch.
+        await _recognizeLocal(image.path);
+        return;
+      }
       final startedAt = _now();
       state = RecognizingCloud(
         transactionId: _label(transactionId),
@@ -264,15 +270,7 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
     await _recognizeLocal(canonicalPath);
   }
 
-  Future<void> _recognizeLocal(
-    String canonicalPath, {
-    int? expectedCloudTransactionId,
-  }) async {
-    if (expectedCloudTransactionId != null &&
-        !_ownsTransaction(expectedCloudTransactionId)) {
-      return;
-    }
-
+  Future<void> _recognizeLocal(String canonicalPath) async {
     _cancelBudgetTimers();
     _activeTransactionId = null;
     final fileOwnerId = _activeFileOwnerId;
@@ -557,16 +555,6 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
       final failure = error is OcrFailure
           ? error
           : OcrFailure.of(OcrFailureKind.service);
-      final canonicalPath = _canonicalPath;
-      if (failure.kind == OcrFailureKind.configuration &&
-          _cloudOcr.configurationPending &&
-          canonicalPath != null) {
-        await _recognizeLocal(
-          canonicalPath,
-          expectedCloudTransactionId: transactionId,
-        );
-        return;
-      }
       if (attempt == 1 && failure.isRetryable) {
         await Future<void>.delayed(_retryDelay(attempt));
         if (!_ownsTransaction(transactionId)) {

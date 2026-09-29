@@ -108,6 +108,7 @@ void main() {
       );
       final cloud = ControllableCloudOcrService(configurationPending: true);
       final local = ControllableLocalOcrService();
+      final preparer = ControllableImagePreparer();
 
       await tester.pumpWidget(
         ProviderScope(
@@ -118,9 +119,7 @@ void main() {
             ),
             cloudOcrServiceProvider.overrideWithValue(cloud),
             localOcrServiceProvider.overrideWithValue(local),
-            imagePreparerProvider.overrideWithValue(
-              ControllableImagePreparer(),
-            ),
+            imagePreparerProvider.overrideWithValue(preparer),
             transactionFilesProvider.overrideWithValue(
               RecordingTransactionFiles(),
             ),
@@ -142,9 +141,9 @@ void main() {
       camera.completeCapture(0, '/temporary/pending-config.jpg');
       await tester.pump();
       await tester.pump();
-      cloud.fail(0, OcrFailure.of(OcrFailureKind.configuration));
-      await tester.pump();
 
+      expect(cloud.requests, isEmpty);
+      expect(preparer.canonicalPaths, isEmpty);
       expect(local.requests, hasLength(1));
       expect(find.byKey(const ValueKey('use-local')), findsNothing);
       local.complete(0, OcrResult.textDetected('자동 기기 인식'));
