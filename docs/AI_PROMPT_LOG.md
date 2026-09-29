@@ -273,3 +273,21 @@ flowchart TD
     RECOVER --> CLEANUP
     CLEANUP --> READY
 ```
+
+### 2026-09-28 — user + AI / 클라우드 watchdog을 60초로 제한
+
+- Request/prompt: Firebase 기본 제한인 180초까지 사용자를 기다리게 하는 것은 과도하므로 앱의 최대 클라우드 대기 시간을 1분으로 제한.
+- Decision/result: 앱의 transaction-level cloud watchdog은 첫 `recognizingCloud` 진입부터 총 60초로 설정한다. 이미지 준비, 첫 요청, 백오프, 두 번째 요청이 같은 60초 예산을 공유하며 재시도나 `조금 더 기다리기`가 시간을 초기화하지 않는다. 10초에는 기존 요청을 유지한 채 로컬 전환 또는 계속 기다리기를 제공하고, 60초에는 transaction을 무효화해 로컬 인식 또는 재촬영만 제안한다.
+- Disposition: modified. Firebase의 문서상 180초는 SDK 기본 제한이지 이 OCR 앱이 사용자에게 보장해야 할 UX 시간이 아니다. 사용자가 명시적으로 더 기다리더라도 모바일 단일 이미지 OCR에 3분은 과도하므로 사용자가 정한 60초 상한을 우선한다.
+- Rejected/modified: 180초 앱 watchdog과 요청별 60초 초기화는 기각했다. 60초 이후 원본 네트워크 Future가 계속 실행될 수는 있지만 `transactionId`를 무효화해 늦은 성공·실패가 UI를 변경하지 못하게 한다.
+- Verification/evidence: user-approved product constraint; Firebase AI Logic documents a 180-second default request timeout, while Dart `Future.timeout` documents that the source future can still complete after the timeout. Boundary behavior requires fake-clock tests at 10 and 60 seconds.
+
+```mermaid
+flowchart LR
+    START["클라우드 인식 시작 · 0초"] --> TEN["10초 · 느림 안내"]
+    TEN -->|기기에서 인식| LOCAL["클라우드 결과 무효화<br/>ML Kit 실행"]
+    TEN -->|조금 더 기다리기| WAIT["같은 요청 유지<br/>남은 예산 최대 50초"]
+    WAIT -->|60초 전 성공| RESULT["결과 표시"]
+    WAIT -->|누적 60초| LIMIT["transactionId 무효화"]
+    LIMIT --> FALLBACK["기기에서 인식 또는 다시 촬영"]
+```
