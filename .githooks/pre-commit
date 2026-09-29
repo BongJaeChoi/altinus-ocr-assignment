@@ -3,4 +3,3 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 "$ROOT/scripts/check_context_budget.sh"
 "$ROOT/scripts/validate_staged_change_scope.sh"
-

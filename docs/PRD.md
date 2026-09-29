@@ -94,4 +94,3 @@ Submission context from the document-pass email: GitHub repository URL due by `2
 - OCR latency and image memory pressure can cause jank or termination if processing is not bounded.
 - Simulator/emulator and mocked tests can hide real camera orientation, permission, and resource-lifecycle defects.
 - Documentation can drift from implementation; the prompt/decision log and coupled-doc rule mitigate this.
-

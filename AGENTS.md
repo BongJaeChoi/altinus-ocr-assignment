@@ -89,4 +89,3 @@ Before claiming completion:
 5. Report exact commands and fresh results, including what could not be run.
 
 Real-device preview and platform parity can only be marked complete from recorded runs on both target platforms. Chrome or Android automation is not evidence for native iOS behavior.
-

@@ -13,4 +13,3 @@ Before delegating, define:
 Use `luna/low` for mechanical discovery, `terra/medium-high` for bounded analysis or routine device automation, and `sol/high` for implementation and complex verification. `sol/xhigh` is reserved for a final risk audit whose added rigor justifies the cost. Never run same-file writers concurrently.
 
 There is intentionally no documentation-only writer. Documentation updates belong to the code, test, verified decision, or incident that caused them.
-

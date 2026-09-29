@@ -101,4 +101,3 @@ A requirement is done only when linked to evidence:
 | Bad input/OCR errors | deterministic failure injection and visible recovery |
 | iOS/Android parity | separate dated run records for both platforms |
 | AI disclosure | append-only decisions and final README summary |
-

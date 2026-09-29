@@ -2,4 +2,3 @@
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 "$ROOT/scripts/validate_commit_message.sh" "$1"
-
