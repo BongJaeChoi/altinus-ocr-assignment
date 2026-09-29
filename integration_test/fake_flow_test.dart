@@ -36,6 +36,9 @@ void main() {
             imagePreparerProvider.overrideWithValue(preparer),
             transactionFilesProvider.overrideWithValue(files),
             appSettingsLauncherProvider.overrideWithValue(settings),
+            ocrNowProvider.overrideWithValue(
+              () => DateTime.utc(2026, 9, 29, 12),
+            ),
             ocrRetryDelayProvider.overrideWithValue((_) => Duration.zero),
           ],
           child: const AltinusOcrApp(),
