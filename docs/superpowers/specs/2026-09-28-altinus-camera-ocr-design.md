@@ -1,10 +1,10 @@
-# Altinus Camera OCR Design
+# ARTINUS Camera OCR Design
 
 Date: 2026-09-28
 
-Status: approved by the user on 2026-09-28
+Status: base design approved on 2026-09-28; Firebase delivery amendment approved in principle on 2026-09-29 and awaiting exact identifier review
 
-Authority: Altinus assignment README at commit `cb7c0d5323e9c0f347253cf52c09594e18342ced`
+Authority: ARTINUS assignment README at commit `cb7c0d5323e9c0f347253cf52c09594e18342ced`
 
 ## 1. Goal and scope
 
@@ -22,7 +22,7 @@ The implementation prioritizes functional completeness, observable recovery, and
 | Camera | Flutter team `camera 0.12.1`, rear camera only |
 | State | `flutter_riverpod 3.4.3`, manual `NotifierProvider`, no Riverpod code generation |
 | Cloud OCR | Firebase AI Logic through Gemini Developer API, `gemini-3.8-flash`, low thinking level, structured JSON |
-| FlutterFire line | Xcode-compatible BoM `4.11.0` family: `firebase_core 4.6.0`, `firebase_ai 3.10.0`; App Check dependencies are transitively packaged, but activation, a token provider, and enforcement are not configured |
+| FlutterFire line | Xcode-compatible BoM `4.11.0` family: `firebase_core 4.6.0`, `firebase_ai 3.10.0`, direct `firebase_app_check 0.4.2`; cloud evidence uses Play Integrity on Android and App Attest with DeviceCheck fallback on Apple platforms |
 | HTTP client | No custom endpoint is in scope. `firebase_ai` owns its transport. If a direct HTTP requirement appears, use a pinned Dio version behind an adapter instead of implementing raw `HttpClient`; do not add Dio before that need exists |
 | Local OCR | Official bundled Google ML Kit Korean Text Recognition on Android and iOS |
 | Native bridge | Pigeon `29.0.4`; generated Dart/Kotlin/Swift files are committed and never edited manually |
@@ -104,7 +104,7 @@ The public Firebase exception type is used when it is specific. Exception messag
 ```mermaid
 flowchart TD
     START[App start] --> DISCLOSE{First-run disclosure accepted?}
-    DISCLOSE -- no --> INFO[Explain camera purpose and cloud transfer]
+    DISCLOSE -- no --> INFO[Explain camera purpose and possible cloud transfer]
     INFO --> PERMISSION[Request system camera permission]
     DISCLOSE -- yes --> PERMISSION
     PERMISSION -- granted --> INIT[Initialize rear camera]
@@ -155,7 +155,7 @@ At 60 seconds, the controller invalidates the transaction and offers local OCR o
 The first run shows a short disclosure before the system permission prompt:
 
 - the camera is used to photograph text;
-- the captured image is sent to a cloud recognition service first;
+- a cloud-enabled evidence build sends the captured image to a cloud recognition service first, while the default evaluator path stays on device;
 - the app does not retain the image in persistent local storage.
 
 The disclosure does not claim that an external cloud provider never stores data. Its accepted state is kept behind `DisclosureStore` so the persistence mechanism can be replaced in tests.
@@ -185,9 +185,36 @@ Logs may contain transaction IDs, domain error categories, attempt count, elapse
 
 Firebase AI Logic uses the Gemini Developer API from the client SDK. A direct Gemini secret key is not embedded or disguised through Gradle variables. Platform Firebase configuration is supplied according to Firebase's mobile setup and the README explains the evaluator setup needed for a clean checkout.
 
+### Single-target evaluation and signed cloud evidence
+
+The repository keeps one Android target and one iOS Runner scheme. It does not require an evaluator to select a flavor, scheme, or environment-specific entry point. The proposed durable identifiers are:
+
+| Resource | Proposed identifier |
+|---|---|
+| Firebase project ID | `artinus-ocr-bongjae-202609` |
+| Firebase display name | `ARTINUS OCR Assignment` |
+| Android application ID | `dev.bongjae.artinusocr` |
+| Apple bundle ID | `dev.bongjae.artinusocr` |
+
+These identifiers are reviewed before creation because the Firebase project ID cannot be changed after provisioning and the mobile identifiers become part of signing and App Check identity. If the exact Firebase project ID is unavailable, creation stops for a new explicit choice instead of silently adding a random suffix.
+
+`flutterfire configure` generates the platform entries and `lib/firebase_options.dart`. These Firebase options are committed because Firebase documents them as public project/app identifiers, not signing secrets. They associate the source with the dedicated assignment project and make the cloud composition reviewable. They do not contain a Gemini Developer API secret.
+
+The normal clean-checkout command remains `flutter run`. Without the explicit compile-time `ARTINUS_CLOUD_EVIDENCE=true` switch, startup does not initialize Firebase or App Check and the already-tested pending capability routes capture directly to bundled local OCR. This is the evaluator default and requires no Firebase account, flavor, signing file, or debug token.
+
+The same target becomes cloud-first only when it is built with `ARTINUS_CLOUD_EVIDENCE=true` in the controlled evidence environment. That bootstrap must initialize Firebase with `DefaultFirebaseOptions.currentPlatform`, activate App Check, and only then compose `FirebaseSdkModelGateway`. Missing or failed Firebase/App Check initialization never silently downgrades the build into a false cloud-success claim: it produces the existing nontechnical configuration recovery while local OCR remains available.
+
+Cloud evidence must be produced from the registered app identity:
+
+- Android uses a dedicated, locally stored keystore. Its SHA-256 certificate fingerprint is registered for the Android Firebase app and Play Integrity. The keystore, aliases, passwords, and `key.properties` are ignored and never committed.
+- Apple uses the matching explicit bundle ID, Apple Team ID, signing certificate, and provisioning profile. App Check uses App Attest with DeviceCheck fallback. Existing `dealert` signing assets are out of scope and must not be reused merely because they exist on the machine.
+- Debug App Check tokens may be used only for local diagnosis and are never committed or presented as production-attestation evidence.
+
+This separation is a composition switch, not a second product flavor. It keeps the evaluator's build path to one command while making the signed cloud proof reproducible by the repository owner.
+
 The app does not duplicate SDK networking with a raw `dart:io HttpClient`, a hand-written retrying client, or an unused Dio wrapper. Dio is introduced only if a direct non-Firebase endpoint becomes an approved requirement. Such an adapter must reuse the domain error boundary, obey the transaction-level 60-second budget, support request cancellation where possible, and disable request/response body logging because payloads can contain images or recognized text.
 
-The evaluation build uses the no-billing/free path only after live quota and model availability are rechecked. `firebase_ai` transitively packages App Check dependencies, but the app does not activate App Check, install a token provider, or enable enforcement because an unknown evaluator device cannot be pre-registered. This is documented as an abuse-protection trade-off, not a production recommendation.
+The project uses the Gemini Developer API no-billing/free path only after live quota and model availability are rechecked. Current Firebase AI Logic setup automatically enforces App Check, so the earlier plan to leave App Check inactive is rejected. The signed cloud-evidence build activates production attestation providers; the evaluator-default local path makes no Firebase request.
 
 The local fallback bundles the official Korean recognizer on both platforms so it works without a model download. Its supported claim is Korean and Latin-family text; wider language coverage belongs to cloud OCR. Cloud unavailability must not prevent the evaluator from exercising the local fallback.
 
@@ -223,7 +250,7 @@ Google ARTEMIS may automate Android UI flows. Chrome DevTools MCP and Python CDP
 
 ### Clean-checkout gate
 
-Before delivery, clone the repository into a new directory and follow only its README. Verify dependency resolution, generated-code presence, static analysis, tests, Android build/install/run, iOS build/install/run, Firebase configuration behavior, and local fallback without relying on ignored developer files. Then verify that the GitHub URL is readable by an evaluator. Email submission is a separate external action and requires explicit user authorization at action time.
+Before delivery, clone the repository into a new directory and follow only its README. Verify dependency resolution, generated-code presence, static analysis, tests, Android build/install/run, iOS build/install/run, committed Firebase option integrity, and the default local flow without relying on ignored developer files. Separately, verify the signed cloud-evidence build with the registered signing identity and App Check. Then verify that the GitHub URL is readable by an evaluator. Email submission is a separate external action and requires explicit user authorization at action time.
 
 ## 12. Evidence ledger
 
@@ -270,5 +297,5 @@ The highest-leverage completion steps are D0 document reconciliation, state-mach
 - [Altinus assignment README, pinned commit `cb7c0d5323e9c0f347253cf52c09594e18342ced`](https://github.com/git-artinus/artinus-fe-recurit/blob/cb7c0d5323e9c0f347253cf52c09594e18342ced/README.md)
 - [Flutter integration testing](https://docs.flutter.dev/testing/integration-tests), [performance profiling](https://docs.flutter.dev/perf/ui-performance), [memory](https://docs.flutter.dev/tools/devtools/memory), and [app architecture](https://docs.flutter.dev/app-architecture)
 - [Flutter camera](https://pub.dev/packages/camera), [Pigeon](https://pub.dev/packages/pigeon), [Riverpod](https://riverpod.dev/docs/introduction/getting_started), and [Dio](https://pub.dev/packages/dio)
-- [Firebase AI Logic](https://firebase.google.com/docs/ai-logic), [Gemini API troubleshooting](https://ai.google.dev/gemini-api/docs/troubleshooting), and [Google ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition/v2)
+- [Firebase AI Logic](https://firebase.google.com/docs/ai-logic), [FlutterFire setup](https://firebase.google.com/docs/flutter/setup), [Firebase configuration objects](https://firebase.google.com/docs/projects/learn-more#config-files-objects), [Flutter App Check](https://firebase.google.com/docs/app-check/flutter/default-providers), [Gemini API troubleshooting](https://ai.google.dev/gemini-api/docs/troubleshooting), and [Google ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition/v2)
 - [Apple privacy guidance](https://developer.apple.com/design/human-interface-guidelines/privacy) and [Android runtime permission guidance](https://developer.android.com/training/permissions/requesting)
