@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_ai/firebase_ai.dart';
 import 'package:image/image.dart' as image;
 
@@ -73,13 +74,20 @@ final class FirebaseConfigurationFailedGateway implements FirebaseModelGateway {
 typedef OcrImageFileReader = Future<Uint8List> Function(File file);
 
 typedef FirebaseGenerateForTest = Future<GenerateContentResponse> Function({
+  required FirebaseAppCheck appCheck,
   required String model,
   required GenerationConfig config,
   required List<Content> prompt,
 });
 
+typedef FirebaseAppCheckProvider = FirebaseAppCheck Function();
+
 final class FirebaseSdkModelGateway implements FirebaseModelGateway {
-  FirebaseSdkModelGateway({this.generateForTest});
+  FirebaseSdkModelGateway({
+    this.generateForTest,
+    FirebaseAppCheckProvider? appCheckProvider,
+  }) : _appCheckProvider =
+           appCheckProvider ?? (() => FirebaseAppCheck.instance);
 
   static const modelName = 'gemini-3.8-flash';
   static const _transcriptionPrompt = '''
@@ -94,6 +102,7 @@ Otherwise return status "noReadableText" and omit "text" or set it to null or an
 ''';
 
   final FirebaseGenerateForTest? generateForTest;
+  final FirebaseAppCheckProvider _appCheckProvider;
 
   @override
   bool get configurationPending => false;
@@ -120,11 +129,13 @@ Otherwise return status "noReadableText" and omit "text" or set it to null or an
         InlineDataPart(request.mimeType, request.imageBytes),
       ]),
     ];
+    final appCheck = _appCheckProvider();
     final response = generateForTest == null
-        ? await FirebaseAI.googleAI()
+        ? await FirebaseAI.googleAI(appCheck: appCheck)
               .generativeModel(model: modelName, generationConfig: config)
               .generateContent(prompt)
         : await generateForTest!(
+            appCheck: appCheck,
             model: modelName,
             config: config,
             prompt: prompt,

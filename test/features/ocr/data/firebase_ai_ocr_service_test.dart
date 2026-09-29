@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:altinus_ocr/features/ocr/data/firebase_ai_ocr_service.dart';
 import 'package:altinus_ocr/features/ocr/domain/ocr_failure.dart';
 import 'package:altinus_ocr/features/ocr/domain/ocr_result.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_ai/firebase_ai.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as image;
@@ -242,14 +243,60 @@ void main() {
   });
 
   test(
+    'SDK gateway forwards the active App Check instance to Firebase AI',
+    () async {
+      final expectedAppCheck = _FakeFirebaseAppCheck();
+      FirebaseAppCheck? receivedAppCheck;
+      final sdkGateway = FirebaseSdkModelGateway(
+        appCheckProvider: () => expectedAppCheck,
+        generateForTest:
+            ({
+              required appCheck,
+              required model,
+              required config,
+              required prompt,
+            }) async {
+              receivedAppCheck = appCheck;
+              return GenerateContentResponse(<Candidate>[
+                Candidate(
+                  Content.model(<Part>[
+                    const TextPart('{"status":"noReadableText"}'),
+                  ]),
+                  null,
+                  null,
+                  FinishReason.stop,
+                  null,
+                ),
+              ], null);
+            },
+      );
+
+      await sdkGateway.generate(
+        FirebaseModelRequest(
+          imageBytes: Uint8List.fromList(<int>[0xff, 0xd8, 0xff]),
+          mimeType: 'image/jpeg',
+        ),
+      );
+
+      expect(receivedAppCheck, same(expectedAppCheck));
+    },
+  );
+
+  test(
     'SDK gateway sends pinned model, low thinking, schema and prompt',
     () async {
       String? modelName;
       GenerationConfig? generationConfig;
       List<Content>? contents;
       final sdkGateway = FirebaseSdkModelGateway(
+        appCheckProvider: _fakeAppCheckProvider,
         generateForTest:
-            ({required model, required config, required prompt}) async {
+            ({
+              required appCheck,
+              required model,
+              required config,
+              required prompt,
+            }) async {
               modelName = model;
               generationConfig = config;
               contents = prompt;
@@ -304,17 +351,22 @@ void main() {
           (FinishReason.recitation, FirebaseModelFinishReason.recitation),
         ]) {
       final sdkGateway = FirebaseSdkModelGateway(
+        appCheckProvider: _fakeAppCheckProvider,
         generateForTest:
-            ({required model, required config, required prompt}) async =>
-                GenerateContentResponse(<Candidate>[
-                  Candidate(
-                    Content.model(const []),
-                    null,
-                    null,
-                    finishReason,
-                    null,
-                  ),
-                ], null),
+            ({
+              required appCheck,
+              required model,
+              required config,
+              required prompt,
+            }) async => GenerateContentResponse(<Candidate>[
+              Candidate(
+                Content.model(const []),
+                null,
+                null,
+                finishReason,
+                null,
+              ),
+            ], null),
       );
 
       final response = await sdkGateway.generate(
@@ -327,12 +379,17 @@ void main() {
 
   test('SDK gateway does not classify a non-safety block as safety', () async {
     final sdkGateway = FirebaseSdkModelGateway(
+      appCheckProvider: _fakeAppCheckProvider,
       generateForTest:
-          ({required model, required config, required prompt}) async =>
-              GenerateContentResponse(
-                const <Candidate>[],
-                PromptFeedback(BlockReason.other, null, const <SafetyRating>[]),
-              ),
+          ({
+            required appCheck,
+            required model,
+            required config,
+            required prompt,
+          }) async => GenerateContentResponse(
+            const <Candidate>[],
+            PromptFeedback(BlockReason.other, null, const <SafetyRating>[]),
+          ),
     );
 
     await expectLater(
@@ -366,3 +423,10 @@ final class CapturingGateway implements FirebaseModelGateway {
 
 Matcher throwsFailure(OcrFailureKind kind) =>
     throwsA(isA<OcrFailure>().having((failure) => failure.kind, 'kind', kind));
+
+final class _FakeFirebaseAppCheck implements FirebaseAppCheck {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+FirebaseAppCheck _fakeAppCheckProvider() => _FakeFirebaseAppCheck();
