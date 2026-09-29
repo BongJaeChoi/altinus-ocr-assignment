@@ -45,7 +45,7 @@ The original-path failures reproduce the documented tooling defect, not a code w
 | `flutter build ios --release --no-codesign` | PASS — `Runner.app` reported 68.8MB |
 | `scripts/check_context_budget.sh`, `git diff --check`, `git diff --exit-code` | PASS |
 
-The fresh clone's tracked tree was clean (`git diff --check` and `git diff --exit-code` passed). `git status --porcelain --untracked-files=all` showed two Xcode-created untracked SwiftPM workspace metadata directories after the iOS build; no tracked file changed. The observed directory/APK sizes are not archive/store sizes, and debug/release outputs are intentionally reported separately.
+The fresh clone's tracked tree was clean (`git diff --check` and `git diff --exit-code` passed). `git status --porcelain --untracked-files=all` showed two untracked `Package.resolved` files below Xcode-created SwiftPM workspace metadata directories after the iOS build; no tracked file changed. The observed directory/APK sizes are not archive/store sizes, and debug/release outputs are intentionally reported separately.
 
 ## Root-review follow-up
 
