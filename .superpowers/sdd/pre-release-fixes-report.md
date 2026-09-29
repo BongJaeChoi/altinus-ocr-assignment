@@ -13,10 +13,10 @@ DONE_WITH_EXTERNAL_GATES. No Firebase project, credential, App Check setting, ph
 
 Implementation commits:
 
-- `e930239` — behavior and TDD coverage
-- `11169d6` — generated Gradle/SwiftPM locks
-- `7ac0e93` — evaluator documentation and decision alignment
-- `00fbb0a` — pending-capability direct local path and race/cleanup coverage
+- `732c68b` — behavior and TDD coverage
+- `1a11178` — generated Gradle/SwiftPM locks
+- `9101ac1` — evaluator documentation and decision alignment
+- `8da5c3e` — pending-capability direct local path and race/cleanup coverage
 
 ## RED to GREEN evidence
 
@@ -64,7 +64,7 @@ The later independent-review follow-up replaced the post-dispatch typed fallback
 
 ## Final ASCII clean-clone verification
 
-Clone source: `7ac0e93046bbbf61f12e4b13237547053873aa73` at `/tmp/artinus-pre-release-final.l0YMtG/artinus-ocr` (ephemeral evidence path).
+Clone source: `9101ac1701e36bb3101efb95ffb32a2e99c1ab35` at `/tmp/artinus-pre-release-final.l0YMtG/artinus-ocr` (ephemeral evidence path).
 
 | Command/check | Result |
 | --- | --- |
@@ -85,7 +85,7 @@ Pigeon 29.0.4 currently emits trailing spaces in four Dart constructor parameter
 
 ### Independent-review follow-up verification
 
-Fresh ASCII clone source: `f990237a1e8df81173ff948ab270aa31349fda60` at `/tmp/artinus-direct-local-final.sLgqH3/artinus-ocr` (ephemeral evidence path).
+Fresh ASCII clone source: `b3642340b1a154d6ec2840024b51d94f17650219` at `/tmp/artinus-direct-local-final.sLgqH3/artinus-ocr` (ephemeral evidence path).
 
 - Pigeon regeneration produced no generated diff; `flutter analyze` reported no issues in 4.0 seconds.
 - Full Flutter suite passed 216; fake integration passed 2.

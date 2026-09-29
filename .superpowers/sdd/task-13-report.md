@@ -15,7 +15,7 @@ DONE_WITH_GATES. No external delivery action was performed.
 
 ### Original Korean-parent worktree
 
-At source `be032cf5b80b9362638fd08a9da7c8e76afdce19`:
+At source `2aff05253de75ffd55b7bf418419527efd176feb`:
 
 | Command | Result |
 | --- | --- |
@@ -31,7 +31,7 @@ The original-path failures reproduce the documented tooling defect, not a code w
 
 ### Committed ASCII clean clone
 
-`git clone . /private/tmp/altinus-task13-clone.hTu5St/altinus-ocr` checked out committed branch `766f8adcec2c4d8811c23a333cc68962afaa0d1e`.
+`git clone . /private/tmp/altinus-task13-clone.hTu5St/altinus-ocr` checked out committed branch `0bb87c62312c0398753831775e372c1acf171a1a`.
 
 | Command | Result |
 | --- | --- |
@@ -56,7 +56,7 @@ The fresh clone's tracked tree was clean (`git diff --check` and `git diff --exi
 - Task 12 Android/iPhone live commands now require `RUN_LIVE_OCR=true`, exact `OCR_DEVICE`, and `OCR_GIT_COMMIT` values from `git rev-parse HEAD`.
 - AI-use labels now explicitly state Used as-is: none, and separately document the verified fixed-clock and `TextPainter.dispose()` corrections.
 
-Fresh follow-up verification: the title test RED showed no `ARTINUS OCR` widget; focused `flutter test test/app_smoke_test.dart` passed 3 tests after the change; full `flutter test` passed 200 tests. Pigeon regeneration stayed stable. Android debug build passed in the original worktree. In an ASCII-path copy, `flutter analyze` passed with no issues and iOS debug no-codesign built `Runner.app`. The final review range is `be032cf..HEAD`; Task 13 commits are `766f8ad`, `cca0e7b`, `99bad2c`, and the commits represented by that final range.
+Fresh follow-up verification: the title test RED showed no `ARTINUS OCR` widget; focused `flutter test test/app_smoke_test.dart` passed 3 tests after the change; full `flutter test` passed 200 tests. Pigeon regeneration stayed stable. Android debug build passed in the original worktree. In an ASCII-path copy, `flutter analyze` passed with no issues and iOS debug no-codesign built `Runner.app`. The final review range is `2aff052..HEAD`; Task 13 commits are `0bb87c6`, `cf1fe3d`, `caca759`, and the commits represented by that final range.
 
 ## Remaining gates
 

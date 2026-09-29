@@ -82,7 +82,7 @@ Aggregate `./gradlew test` in the Korean-character worktree is not a clean app-o
 
 ### RED evidence
 
-An isolated ASCII clean clone at commit `76807d1` used only temporary untracked fixtures. Before the production change:
+An isolated ASCII clean clone at commit `072b4ff` used only temporary untracked fixtures. Before the production change:
 
 - partial properties did not produce the required incomplete-configuration failure;
 - a wrong alias did not produce the required invalid-configuration failure;
