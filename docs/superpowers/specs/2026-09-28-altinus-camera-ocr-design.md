@@ -27,7 +27,7 @@ The implementation prioritizes functional completeness, observable recovery, and
 | Local OCR | Official bundled Google ML Kit Korean Text Recognition on Android and iOS |
 | Native bridge | Pigeon `29.0.4`; generated Dart/Kotlin/Swift files are committed and never edited manually |
 
-All resolved native dependency versions must be locked by Gradle and CocoaPods files. Dynamic version selectors are prohibited.
+Resolved Android app configurations are locked by the generated Gradle lockfile. iOS preserves CocoaPods `Podfile.lock` and Xcode-generated, identical Runner project/workspace `Package.resolved` files for the mixed Pods/SwiftPM graph. Dynamic version selectors are prohibited.
 
 ## 3. Architecture
 
@@ -59,7 +59,7 @@ Repositories expose domain operations and convert service output into domain res
 
 ### Services and native adapters
 
-Services are replaceable external adapters. `FirebaseAiOcrService` calls the official `firebase_ai` API and owns Firebase result parsing and error classification; it does not replace or wrap the SDK transport with Dio. No application-level raw HTTP client is implemented or tested. If a future direct endpoint creates a real HTTP boundary, a Dio-backed adapter owns it. `MlKitOcrService` passes a temporary image file path through generated Pigeon code. Kotlin and Swift create, use, and release their ML Kit input and recognizer resources asynchronously.
+Services are replaceable external adapters. `FirebaseAiOcrService` calls the official `firebase_ai` API and owns Firebase result parsing and error classification; it does not replace or wrap the SDK transport with Dio. The unconfigured evaluator gateway exposes an explicit pending capability: only its typed `configuration` failure continues directly to local OCR, while configuration/service failures from a configured gateway retain the recovery UI. No message parsing or concrete-class check drives this distinction. No application-level raw HTTP client is implemented or tested. If a future direct endpoint creates a real HTTP boundary, a Dio-backed adapter owns it. `PigeonLocalOcrService` passes a temporary image file path through generated Pigeon code. Kotlin and Swift create, use, and release their ML Kit input and recognizer resources asynchronously.
 
 No separate use-case layer is added; it would only duplicate orchestration already owned by the controller.
 
@@ -75,7 +75,7 @@ OcrResult
 
 Cloud structured output must explicitly identify one of these states. `textDetected` with blank text, a missing state, an unknown state, malformed JSON, or contradictory fields is an invalid response, not `noReadableText`.
 
-OCR must transcribe visible text only. It must not guess missing characters, correct spelling, translate, summarize, or infer content. ML Kit returning zero blocks or an empty string maps to `noReadableText`.
+OCR must transcribe visible text only. It must not guess missing characters, correct spelling, translate, summarize, or infer content. Native hosts map zero blocks or a blank recognized result to a `noReadableText` reply with `text == null`; the Dart adapter rejects either empty or non-empty contradictory text on that status as an invalid bridge response.
 
 ### Error categories
 
@@ -89,15 +89,15 @@ local: bridge | recognizer | invalidInput
 concurrency: duplicateCapture | staleResult | disposedOwner
 ```
 
-The public Firebase exception type is used when it is specific. Exception message text is never parsed to reconstruct an HTTP status. Unknown or ambiguous failures are not guessed to be transient.
+The public Firebase exception type is used when it is specific. Exception message text is never parsed to reconstruct an HTTP status. Pigeon maps exact `PlatformException.code` values: `INVALID_IMAGE_PATH`/`INPUT_IMAGE_FAILED` to invalid input, `OCR_FAILED` to recognizer failure, and channel/null/unknown failures to bridge failure. Raw codes remain internal. Unknown or ambiguous failures are not guessed to be transient.
 
 ### Retry policy
 
 - At most two cloud attempts exist in one transaction and the UI shows `1/2` or `2/2`.
 - Only a clearly identified transport/transient failure is retried once with bounded exponential backoff and jitter.
-- Quota, invalid configuration/key, disabled service, unsupported location, generic/ambiguous server failure, SDK parsing failure, safety/recitation, invalid schema, and the 60-second deadline are not automatically retried.
+- Quota, configured-gateway invalid configuration/key, disabled service, unsupported location, generic/ambiguous server failure, SDK parsing failure, safety/recitation, invalid schema, and the 60-second deadline are not automatically retried. The evaluator-only pending capability is the narrow exception: its typed configuration failure proceeds to local OCR without a recovery tap.
 - A non-retryable failure or a failed second attempt offers local OCR or recapture.
-- Choosing local OCR invalidates the cloud transaction. A late cloud completion is ignored.
+- Choosing local OCR invalidates the cloud transaction. The SDK call already in flight may not be physically cancellable; a late completion is ignored by transaction identity.
 
 ## 5. State and data flow
 
@@ -175,7 +175,7 @@ Input preparation performs only:
 
 Automatic contrast, sharpening, denoising, and geometric deskew are excluded until a fixed input set demonstrates a measurable benefit without unacceptable CPU, memory, or character damage.
 
-The app deletes transaction files on recapture, result exit, new flow, disposal, and recoverable startup cleanup of files created under its own temporary-file prefix. It never saves captures to the gallery or creates OCR history.
+The app deletes transaction files on recapture, result exit, new flow, disposal, and recoverable startup cleanup of derivatives created under its own temporary-file prefix. It does not sweep the OS camera temp root, so a canonical capture can remain there after abnormal process exit until OS cleanup. It never saves captures to the gallery or creates OCR history.
 
 Logs may contain transaction IDs, domain error categories, attempt count, elapsed time, and lifecycle state. They must not contain an image, recognized text, raw model response, API credential, or local image path.
 
