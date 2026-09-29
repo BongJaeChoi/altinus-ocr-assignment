@@ -1,5 +1,7 @@
 # Firebase Signed Cloud Evidence Implementation Plan
 
+> Historical status: Tasks 1–5 were completed. The user approved evaluator-delivery option B on 2026-09-29, so the obsolete Apple App Attest/private-bundle Tasks 6–7 are superseded by `2026-09-29-evaluator-cloud-bundle.md` and must not be executed.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Create the dedicated ARTINUS Firebase project and mobile app registrations, commit reviewable Firebase options, and add one-target opt-in cloud composition whose live evidence uses the registered signing identity and App Check while a clean checkout still runs local OCR with `flutter run`.
