@@ -18,7 +18,7 @@
 | 10. iOS ML Kit and settings | complete; device gate pending | `09e1d11` | Approved; Swift tests 9/9 and clean builds pass |
 | 11. Full composition and integration | complete; Firebase/device gates pending | `c349201`, `573979b`, `be032cf` | Approved; root Minor follow-ups addressed |
 | 12. Real-device and performance verification | pending | — | — |
-| 13. README and clean-clone verification | complete with gates | pending final docs commit | README and first committed ASCII clone verified; Firebase/device/flash gates remain |
+| 13. README and clean-clone verification | complete with gates | `766f8ad`, `cca0e7b` | README and committed ASCII clean clones verified; Firebase/device/flash gates remain |
 
 ## Minor findings
 
