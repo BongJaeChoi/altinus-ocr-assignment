@@ -50,5 +50,12 @@ flutter {
 
 dependencies {
     implementation("com.google.mlkit:text-recognition-korean:16.0.1")
+    // Flutter's built-in Kotlin integration adds this module during assemble.
+    // Declaring it here lets Gradle persist the runtime classpaths in the lockfile.
+    runtimeOnly("org.jetbrains.kotlin:kotlin-stdlib-common:2.4.0")
     testImplementation("junit:junit:4.13.2")
+}
+
+dependencyLocking {
+    lockAllConfigurations()
 }
