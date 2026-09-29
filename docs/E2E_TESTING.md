@@ -116,6 +116,43 @@ Because ARTEMIS and Chrome CDP do not cover native iOS camera behavior, use:
 
 If no real iPhone is available, report iOS real-device verification as blocked, not passed.
 
+### iOS simulator-first gate
+
+Run this gate from an ASCII-only checkout. The Korean parent path currently
+causes Flutter/Xcode SwiftPM percent-encoding failure before native code starts.
+
+```bash
+xcrun simctl boot <simulator-id> || true
+xcrun simctl bootstatus <simulator-id> -b
+flutter pub get
+flutter build ios --debug --no-codesign
+flutter test integration_test/native_ocr_smoke_test.dart -d <simulator-id>
+flutter test integration_test/fake_flow_test.dart -d <simulator-id>
+```
+
+Before direct `xcodebuild`, reset Flutter's generated target. An integration
+test temporarily points `Generated.xcconfig` at a disposable test-listener
+file, so running XCTest immediately afterward can read a stale path.
+
+```bash
+flutter build ios --simulator
+xcodebuild -quiet \
+  -workspace ios/Runner.xcworkspace \
+  -scheme Runner \
+  -sdk iphonesimulator \
+  -configuration Debug \
+  -destination 'platform=iOS Simulator,id=<simulator-id>,arch=x86_64' \
+  -only-testing:RunnerTests test \
+  CODE_SIGNING_ALLOWED=NO ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES
+```
+
+This proves the typed Pigeon boundary, Swift host behavior, bundled Korean ML
+Kit recognition for generated fixtures, deterministic UI recovery, and native
+unit policies. It does not prove camera hardware, permission/settings UI,
+flash, physical App Check attestation, device orientation, frame time, memory,
+heat, or Android parity. The ten-request native OCR check is not a substitute
+for ten physical capture cycles.
+
 ## Run record template
 
 ```text
@@ -130,3 +167,10 @@ Result: PASS | FAIL | BLOCKED
 Artifacts:
 Notes/follow-up:
 ```
+
+## Sources
+
+- [Apple: Running your app on simulated or physical devices](https://developer.apple.com/documentation/Xcode/running-your-app-on-simulated-or-physical-devices)
+- [Flutter integration testing](https://docs.flutter.dev/testing/integration-tests)
+- [Flutter testing overview](https://docs.flutter.dev/testing/overview)
+- [ML Kit text recognition on iOS](https://developers.google.com/ml-kit/vision/text-recognition/v2/ios)

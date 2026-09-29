@@ -86,6 +86,9 @@ Firebase/ML Kit SDK의 이미 시작된 native 호출을 실제로 취소한다�
 | Android app unit test + lint | PASS — 422 tasks, build successful |
 | Android release signing | PASS — Firebase에 유일하게 등록된 과제 인증서 SHA-256과 일치 |
 | iOS debug/release no-codesign build | PASS — release `Runner.app` 69.4 MB |
+| iOS simulator native OCR | PASS — iOS 18.5, real Pigeon → Swift → Korean ML Kit; Korean/Latin core tokens, multiline/newline, rotated, no-text, missing input, 10 sequential OCR requests |
+| iOS simulator fake full-flow | PASS — disclosure, pause/resume, cloud retry, 10-second local selection, stale cloud rejection |
+| iOS simulator RunnerTests | PASS — 9/9 native policy tests on x86_64 |
 | iOS release credential containment | PASS — evaluator debug token 값/식별자 없음 |
 | Android release credential containment | PASS — evaluator debug token 값/식별자 없음 |
 | iOS simulator live cloud smoke | PARTIAL — `899bf4c` PASS; `7152334` 재검증은 2회 service 실패 후 진단 요청에서 quota/capacity 오류 확인 |
@@ -142,7 +145,7 @@ Android와 iPhone 각각에서 다음을 확인해야 physical parity나 flash-r
 3. flash 노출·점등·복귀, 10회 반복 촬영, frame time, memory/CPU/발열
 4. Android 외부 설치 Play Integrity와 iPhone debug provider의 실제 token 승인
 
-실기기 증거가 없으므로 이 저장소는 자동화·빌드·iOS 시뮬레이터 cloud smoke까지만 검증된 상태입니다. push, 앱스토어 업로드, 과제 제출은 수행하지 않았습니다.
+실기기 증거가 없으므로 이 저장소는 자동화·빌드·iOS 시뮬레이터 cloud/native OCR까지만 검증된 상태입니다. push, 앱스토어 업로드, 과제 제출은 수행하지 않았습니다.
 
 ## 근거
 

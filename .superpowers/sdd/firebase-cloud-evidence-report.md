@@ -164,7 +164,35 @@ unverified:
 The iOS simulator result is supplemental and must not be used as physical
 platform-parity evidence.
 
-## Independent hiring-persona review
+## Simulator-first evidence
+
+An ASCII-only checkout at `30cb3d0` ran on an iPhone 16 Pro iOS 18.5 simulator:
+
+- `flutter analyze`: PASS, 0 issues;
+- `flutter test`: PASS, 228 tests;
+- iOS debug no-codesign and simulator builds: PASS;
+- real Pigeon → Swift → bundled Korean ML Kit integration: PASS;
+- generated Korean/Latin and 90-degree rotated fixtures: Korean/Latin core
+  tokens present; multiline: core tokens and newline present;
+- generated no-text fixture: typed `NoReadableText`;
+- missing image: sanitized domain `invalidInput`;
+- ten sequential native OCR requests: PASS, with no performance claim;
+- deterministic fake full-flow integration: 2/2 PASS;
+- native `RunnerTests`: 9/9 PASS on the required x86_64 simulator path.
+
+Two environment failures preceded the final RunnerTests pass. The Korean source
+path failed SwiftPM percent decoding before native execution. Later, running
+XCTest directly after Flutter integration left `Generated.xcconfig` pointing at
+a deleted test-listener file. An ASCII clone plus `flutter build ios
+--simulator` restored `FLUTTER_TARGET=lib/main.dart`; the pinned x86_64 command
+then passed. No production source workaround was added.
+
+These results verify native contracts and generated-image recognition only.
+They do not verify camera hardware, system permission/settings recovery, flash,
+physical App Check attestation, device orientation, frame/memory/thermal
+behavior, or Android/iPhone parity. Ten OCR requests are not ten capture cycles.
+
+## Pre-simulator cloud-handoff hiring-persona review
 
 Final read-only re-review after the four Important fixes found Critical 0,
 Important 0, and Minor 2.
@@ -185,6 +213,29 @@ repeat the canonical `7152334` cloud smoke after quota/capacity recovery without
 adding billing; and preserve the exact evidence report plus artifact hashes in
 the final commit. The score is limited by missing physical-device evidence, not
 by an unreported static blocker.
+
+## Simulator evidence hiring-persona review
+
+The final read-only simulator re-review found Critical 0, Important 0, and one
+bounded Minor inherited from the earlier branch-level App Check review. It
+approved the change because the tests and documents now bind to `30cb3d0`, the
+generated text fixtures assert Korean/Latin core tokens rather than only a
+nonblank result, and every physical-device limitation remains explicit.
+
+- Overall: `87/100`
+- HR / recruiter: `89/100`
+- Hiring manager / development lead: `86/100`
+
+The remaining Minor is that the production App Check client factory is directly
+tested, but a future gateway edit could theoretically bypass that factory
+without the current test detecting the changed call graph. It is not caused by
+the simulator work and is not a defect in the current implementation or live
+evidence.
+
+The review's three highest-leverage next steps are: commit the pending evidence
+documents and reconfirm a clean tree; execute the physical Android/iPhone
+camera, permission, flash, lifecycle, performance, heat, and App Check matrix;
+and repeat the canonical cloud smoke after quota/capacity recovery.
 
 ## Sources
 

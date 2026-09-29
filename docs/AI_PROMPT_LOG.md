@@ -625,3 +625,24 @@ flowchart LR
 - Evidence policy: Do not relabel the earlier success as a `7152334` pass. Keep
   remote quota/capacity and both physical-device matrices explicitly blocked;
   the product-level two-attempt path still offers bundled on-device OCR.
+
+### 2026-09-29 — user + AI / simulator-first native evidence
+
+- Request/prompt: Run everything the simulator can credibly prove before
+  waiting for physical Android and iPhone hardware.
+- Result: An ASCII checkout at `30cb3d0` on iPhone 16 Pro/iOS 18.5 passed the
+  real Pigeon → Swift → Korean ML Kit integration for generated Korean/Latin,
+  multiline, rotated, and no-text fixtures. Detected fixtures preserved Korean
+  and Latin core tokens, and multiline retained its newline/token evidence. A
+  missing image mapped to sanitized
+  `invalidInput`; ten sequential native OCR calls passed. The deterministic
+  fake full-flow passed 2/2 and RunnerTests passed 9/9 on x86_64.
+- Debugging evidence: The Korean source path failed before native execution due
+  to the existing SwiftPM percent-encoding issue. Direct XCTest after Flutter
+  integration then read a deleted temporary test-listener path from generated
+  Xcode settings. `flutter build ios --simulator` restored
+  `FLUTTER_TARGET=lib/main.dart`, and the already-pinned x86_64 RunnerTests
+  command passed. No production workaround was introduced.
+- Limits: The simulator does not prove camera hardware, permission/settings
+  recovery, flash, physical App Check, device orientation, frame/memory/heat,
+  or platform parity. Ten native OCR calls are not ten capture cycles.

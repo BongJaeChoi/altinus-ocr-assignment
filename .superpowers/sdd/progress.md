@@ -46,7 +46,7 @@
 | 1. Cloud-first bootstrap and Apple debug guard | complete | `d0e4dcf..eb917e8` | Approved after profile-mode fail-closed fix; release binary token scan remains Task 4 |
 | 2. Bundled Android evaluation identity | complete | `08bb4ff..6b4a7c1` | Approved; root independently verified byte identity, RSA-4096/sole Firebase SHA-256, fresh ASCII clone builds/tests/lint, and default APK signatures |
 | 3. App Check and Firebase AI Logic remote setup | complete | remote state; no source commit | Approved; Critical 0, Important 0, two wording-only Minor findings corrected in the ignored report |
-| 4. Live, clean-clone, release-containment, and handoff evidence | in progress; remote quota/capacity and physical devices blocked | `7152334`, docs pending | Final ASCII local/build/security gates pass; earlier `899bf4c` iOS simulator cloud smoke passed, while final `7152334` revalidation reached quota/capacity failure; physical Android/iPhone matrix remains |
+| 4. Live, clean-clone, release-containment, and handoff evidence | in progress; remote quota/capacity and physical devices blocked | `7152334`, `30cb3d0`, simulator evidence in this docs commit | Final ASCII local/build/security gates pass; iOS 18.5 simulator passed real Pigeon/Swift/Korean ML Kit fixtures, 10 OCR requests, fake flow 2/2, and RunnerTests 9/9; simulator review: Critical 0, Important 0, Minor 1, Overall 87/100; earlier `899bf4c` cloud smoke passed while final revalidation reached quota/capacity failure; physical Android/iPhone matrix remains |
 
 ## Minor findings
 

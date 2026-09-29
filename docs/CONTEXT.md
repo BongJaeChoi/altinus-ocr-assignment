@@ -126,6 +126,13 @@ Re-check environment/device facts immediately before implementation and E2E; the
 - The exact evaluator token and its source identifier were absent from expanded
   Android release APK and iOS release app outputs. Android release signing
   matched the sole registered assignment certificate.
+- Commit `30cb3d0` on the iPhone 16 Pro iOS 18.5 simulator passed the real
+  Pigeon → Swift → Korean ML Kit smoke for generated Korean/Latin, multiline,
+  rotated, and no-text fixtures. Detected fixtures retained the generated
+  Korean and Latin core tokens; multiline retained its newline/token evidence.
+  The same run sanitized a missing image and completed ten
+  sequential native OCR requests. The two fake full-flow tests and 9/9
+  RunnerTests also passed. This does not promote any physical-device gate.
 - Physical Android/iPhone camera, App Check, local OCR, lifecycle, performance,
   heat, flash, and platform parity remain blocked until hardware is connected.
 
