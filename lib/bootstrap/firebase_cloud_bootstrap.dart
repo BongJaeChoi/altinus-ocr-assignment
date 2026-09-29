@@ -2,14 +2,26 @@ import 'dart:io';
 
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 
+import 'evaluator_credentials.dart';
 import '../features/ocr/data/firebase_ai_ocr_service.dart';
 import '../firebase_options.dart';
 
 const artinusCloudEvidenceEnabled = bool.fromEnvironment(
   'ARTINUS_CLOUD_EVIDENCE',
-  defaultValue: false,
+  defaultValue: true,
 );
+
+AppleAppCheckProvider selectEvaluatorAppleProvider({
+  required bool isReleaseMode,
+  required String debugToken,
+}) {
+  if (isReleaseMode || debugToken.trim().isEmpty) {
+    throw StateError('Apple cloud evaluation is unavailable');
+  }
+  return AppleDebugProvider(debugToken: debugToken);
+}
 
 abstract interface class FirebaseCloudRuntime {
   Future<void> initialize();
@@ -26,15 +38,20 @@ final class ProductionFirebaseCloudRuntime implements FirebaseCloudRuntime {
 
   @override
   Future<void> activateAppCheck() async {
-    if (!Platform.isAndroid && !Platform.isIOS) {
+    if (Platform.isAndroid) {
+      await FirebaseAppCheck.instance.activate(
+        providerAndroid: const AndroidPlayIntegrityProvider(),
+      );
       return;
     }
-    await FirebaseAppCheck.instance.activate(
-      // ignore: deprecated_member_use
-      androidProvider: AndroidProvider.playIntegrity,
-      // ignore: deprecated_member_use
-      appleProvider: AppleProvider.appAttestWithDeviceCheckFallback,
-    );
+    if (Platform.isIOS) {
+      await FirebaseAppCheck.instance.activate(
+        providerApple: selectEvaluatorAppleProvider(
+          isReleaseMode: kReleaseMode,
+          debugToken: evaluatorIosAppCheckDebugToken,
+        ),
+      );
+    }
   }
 
   @override

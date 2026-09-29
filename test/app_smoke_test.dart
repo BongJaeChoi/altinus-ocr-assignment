@@ -2,14 +2,9 @@ import 'dart:typed_data';
 
 import 'package:altinus_ocr/app.dart';
 import 'package:altinus_ocr/bootstrap/firebase_cloud_bootstrap.dart';
-import 'package:altinus_ocr/features/camera/camera_plugin_repository.dart';
 import 'package:altinus_ocr/features/disclosure/disclosure_store.dart';
 import 'package:altinus_ocr/features/ocr/application/ocr_providers.dart';
 import 'package:altinus_ocr/features/ocr/data/firebase_ai_ocr_service.dart';
-import 'package:altinus_ocr/features/ocr/data/image_preparer.dart';
-import 'package:altinus_ocr/features/ocr/data/pigeon_app_settings_launcher.dart';
-import 'package:altinus_ocr/features/ocr/data/pigeon_local_ocr_service.dart';
-import 'package:altinus_ocr/features/ocr/data/temp_image_store.dart';
 import 'package:altinus_ocr/features/ocr/domain/ocr_failure.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,36 +24,17 @@ void main() {
     expect(find.text('ARTINUS OCR'), findsOneWidget);
   });
 
-  test('default production composition stays local and pending', () async {
+  test('default production composition is cloud-first', () async {
     final runtime = _RecordingFirebaseCloudRuntime();
     final gateway = await createFirebaseModelGateway(runtime: runtime);
-    final container = ProviderContainer(
-      overrides: [firebaseModelGatewayProvider.overrideWithValue(gateway)],
-    );
-    addTearDown(container.dispose);
 
-    expect(runtime.calls, isEmpty);
-    expect(
-      container.read(cameraRepositoryProvider),
-      isA<CameraPluginRepository>(),
-    );
-    final cloudService = container.read(cloudOcrServiceProvider);
-    expect(cloudService, isA<FirebaseAiOcrService>());
-    expect(cloudService.configurationPending, isTrue);
-    expect(
-      container.read(firebaseModelGatewayProvider),
-      isA<FirebaseConfigurationPendingGateway>(),
-    );
-    expect(
-      container.read(localOcrServiceProvider),
-      isA<PigeonLocalOcrService>(),
-    );
-    expect(
-      container.read(appSettingsLauncherProvider),
-      isA<PigeonAppSettingsLauncher>(),
-    );
-    expect(container.read(imagePreparerProvider), isA<BoundedImagePreparer>());
-    expect(container.read(transactionFilesProvider), isA<TempImageStore>());
+    expect(runtime.calls, <String>[
+      'firebase.initialize',
+      'appCheck.activate',
+      'gateway.create',
+    ]);
+    expect(gateway, isA<FirebaseSdkModelGateway>());
+    expect(gateway.configurationPending, isFalse);
   });
 
   test(

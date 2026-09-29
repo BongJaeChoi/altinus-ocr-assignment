@@ -3,9 +3,45 @@ import 'dart:typed_data';
 import 'package:altinus_ocr/bootstrap/firebase_cloud_bootstrap.dart';
 import 'package:altinus_ocr/features/ocr/data/firebase_ai_ocr_service.dart';
 import 'package:altinus_ocr/features/ocr/domain/ocr_failure.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('evaluation build is cloud-first by default', () {
+    expect(artinusCloudEvidenceEnabled, isTrue);
+  });
+
+  test('iOS debug selects the explicit registered debug token', () {
+    final provider = selectEvaluatorAppleProvider(
+      isReleaseMode: false,
+      debugToken: '11111111-1111-1111-1111-111111111111',
+    );
+
+    expect(provider, isA<AppleDebugProvider>());
+    expect(
+      (provider as AppleDebugProvider).debugToken,
+      '11111111-1111-1111-1111-111111111111',
+    );
+  });
+
+  test('iOS debug rejects a blank token without exposing it', () {
+    expect(
+      () =>
+          selectEvaluatorAppleProvider(isReleaseMode: false, debugToken: '   '),
+      throwsA(isA<StateError>()),
+    );
+  });
+
+  test('iOS release rejects the debug provider', () {
+    expect(
+      () => selectEvaluatorAppleProvider(
+        isReleaseMode: true,
+        debugToken: '11111111-1111-1111-1111-111111111111',
+      ),
+      throwsA(isA<StateError>()),
+    );
+  });
+
   test('disabled mode returns pending without touching Firebase', () async {
     final runtime = _RecordingFirebaseCloudRuntime();
 
