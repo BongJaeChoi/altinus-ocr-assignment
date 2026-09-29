@@ -22,6 +22,20 @@
 | 14. Whole-branch pre-release fixes | complete with external gates | `e930239`, `11169d6`, `7ac0e93`, `HEAD` | Pending Firebase auto-local, native taxonomy, Gradle/SwiftPM locks, and clean-clone verification complete; Firebase/device/signing gates remain |
 | 15. Independent pre-release follow-up | complete with external gates | `00fbb0a`, `HEAD` | Pending capability now bypasses all cloud-only work; default Gradle lock-mode wording and 57/57 state evidence corrected |
 
+## Firebase Signed Cloud Evidence Plan
+
+- Plan: `docs/superpowers/plans/2026-09-29-firebase-signed-cloud-evidence.md`
+- Base: `4623cf3`
+
+| Task | Status | Commit | Review |
+| --- | --- | --- | --- |
+| 1–2. Firebase project/apps and durable mobile identity | complete | `4623cf3..82394f0` | Approved; remote project/apps, Pigeon stability, focused Dart/native tests independently verified |
+| 3. Generated Firebase configuration | pending | — | — |
+| 4. Opt-in Firebase/App Check bootstrap | pending | — | — |
+| 5. Android registered signing identity | pending | — | — |
+| 6. Apple signing and App Check gate | pending | — | Requires action-time Team authorization before mutation |
+| 7. Live cloud/device/final evidence | pending | — | — |
+
 ## Minor findings
 
 - Task 11: the generated mixed fixture/nonblank native smoke proves bridge execution, not Korean glyph rendering or Korean-character recognition. Task 12 must validate actual Korean characters independently on Android and iPhone hardware.

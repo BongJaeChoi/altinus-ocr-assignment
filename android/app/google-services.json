@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "867285305627",
+    "project_id": "artinus-ocr-bongjae-202609",
+    "storage_bucket": "artinus-ocr-bongjae-202609.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:867285305627:android:b00b0c0a36bcd8780f6bbe",
+        "android_client_info": {
+          "package_name": "dev.bongjae.artinusocr"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5lhzXmcLoGxGQId0_dGch0EH_I1r_bqc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
