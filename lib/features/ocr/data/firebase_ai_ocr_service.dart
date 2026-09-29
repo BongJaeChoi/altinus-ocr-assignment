@@ -82,6 +82,9 @@ typedef FirebaseGenerateForTest = Future<GenerateContentResponse> Function({
 
 typedef FirebaseAppCheckProvider = FirebaseAppCheck Function();
 
+FirebaseAI createFirebaseAiClient({required FirebaseAppCheck appCheck}) =>
+    FirebaseAI.googleAI(appCheck: appCheck);
+
 final class FirebaseSdkModelGateway implements FirebaseModelGateway {
   FirebaseSdkModelGateway({
     this.generateForTest,
@@ -131,7 +134,7 @@ Otherwise return status "noReadableText" and omit "text" or set it to null or an
     ];
     final appCheck = _appCheckProvider();
     final response = generateForTest == null
-        ? await FirebaseAI.googleAI(appCheck: appCheck)
+        ? await createFirebaseAiClient(appCheck: appCheck)
               .generativeModel(model: modelName, generationConfig: config)
               .generateContent(prompt)
         : await generateForTest!(

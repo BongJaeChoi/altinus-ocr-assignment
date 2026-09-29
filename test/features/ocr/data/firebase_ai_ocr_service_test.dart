@@ -7,14 +7,23 @@ import 'package:altinus_ocr/features/ocr/domain/ocr_failure.dart';
 import 'package:altinus_ocr/features/ocr/domain/ocr_result.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_ai/firebase_ai.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_core_platform_interface/test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as image;
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setupFirebaseCoreMocks();
+
   late Directory temporaryDirectory;
   late File imageFile;
   late CapturingGateway gateway;
   late FirebaseAiOcrService service;
+
+  setUpAll(() async {
+    await Firebase.initializeApp();
+  });
 
   setUp(() async {
     temporaryDirectory = await Directory.systemTemp.createTemp('ocr_service_');
@@ -241,6 +250,17 @@ void main() {
       });
     }
   });
+
+  test(
+    'production Firebase AI client retains the active App Check instance',
+    () {
+      final appCheck = FirebaseAppCheck.instance;
+
+      final client = createFirebaseAiClient(appCheck: appCheck);
+
+      expect(client.appCheck, same(appCheck));
+    },
+  );
 
   test(
     'SDK gateway forwards the active App Check instance to Firebase AI',
