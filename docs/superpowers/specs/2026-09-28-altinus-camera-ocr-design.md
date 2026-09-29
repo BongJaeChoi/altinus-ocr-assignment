@@ -23,6 +23,7 @@ The implementation prioritizes functional completeness, observable recovery, and
 | State | `flutter_riverpod 3.4.3`, manual `NotifierProvider`, no Riverpod code generation |
 | Cloud OCR | Firebase AI Logic through Gemini Developer API, `gemini-3.8-flash`, low thinking level, structured JSON |
 | FlutterFire line | Xcode-compatible BoM `4.11.0` family: `firebase_core 4.6.0`, `firebase_ai 3.10.0`; App Check is not wired into the evaluation build |
+| HTTP client | No custom endpoint is in scope. `firebase_ai` owns its transport. If a direct HTTP requirement appears, use a pinned Dio version behind an adapter instead of implementing raw `HttpClient`; do not add Dio before that need exists |
 | Local OCR | Official bundled Google ML Kit Korean Text Recognition on Android and iOS |
 | Native bridge | Pigeon `29.0.4`; generated Dart/Kotlin/Swift files are committed and never edited manually |
 
@@ -58,7 +59,7 @@ Repositories expose domain operations and convert service output into domain res
 
 ### Services and native adapters
 
-Services are replaceable external adapters. Firebase parsing and error classification stay in `FirebaseAiOcrService`. `MlKitOcrService` passes a temporary image file path through generated Pigeon code. Kotlin and Swift create, use, and release their ML Kit input and recognizer resources asynchronously.
+Services are replaceable external adapters. `FirebaseAiOcrService` calls the official `firebase_ai` API and owns Firebase result parsing and error classification; it does not replace or wrap the SDK transport with Dio. No application-level raw HTTP client is implemented or tested. If a future direct endpoint creates a real HTTP boundary, a Dio-backed adapter owns it. `MlKitOcrService` passes a temporary image file path through generated Pigeon code. Kotlin and Swift create, use, and release their ML Kit input and recognizer resources asynchronously.
 
 No separate use-case layer is added; it would only duplicate orchestration already owned by the controller.
 
@@ -182,6 +183,8 @@ Logs may contain transaction IDs, domain error categories, attempt count, elapse
 
 Firebase AI Logic uses the Gemini Developer API from the client SDK. A direct Gemini secret key is not embedded or disguised through Gradle variables. Platform Firebase configuration is supplied according to Firebase's mobile setup and the README explains the evaluator setup needed for a clean checkout.
 
+The app does not duplicate SDK networking with a raw `dart:io HttpClient`, a hand-written retrying client, or an unused Dio wrapper. Dio is introduced only if a direct non-Firebase endpoint becomes an approved requirement. Such an adapter must reuse the domain error boundary, obey the transaction-level 60-second budget, support request cancellation where possible, and disable request/response body logging because payloads can contain images or recognized text.
+
 The evaluation build uses the no-billing/free path only after live quota and model availability are rechecked. App Check integration and enforcement are excluded from the evaluation build because an unknown evaluator device cannot be pre-registered. This is documented as an abuse-protection trade-off, not a production recommendation.
 
 The local fallback bundles the official Korean recognizer on both platforms so it works without a model download. Its supported claim is Korean and Latin-family text; wider language coverage belongs to cloud OCR. Cloud unavailability must not prevent the evaluator from exercising the local fallback.
@@ -199,7 +202,7 @@ All error states use natural language and a next action. Firebase, Gemini, ML Ki
 ### Automated layers
 
 1. **State-machine unit tests with a fake clock** cover 9.999/10-second and 59.999/60-second boundaries, retry budget preservation, attempt counters, user-directed waiting, local switch, late completion, duplicate capture, cleanup, and lifecycle invalidation.
-2. **Repository/service tests** cover structured success, explicit no-text, blank/contradictory/malformed responses, error classification, no message parsing, and log redaction.
+2. **Repository/service tests** cover structured success, explicit no-text, blank/contradictory/malformed responses, error classification, no message parsing, and log redaction. They fake the Firebase service boundary rather than re-testing the SDK's internal HTTP implementation. A Dio adapter receives focused request, cancellation, timeout-mapping, and redaction tests only if a direct HTTP endpoint is later approved.
 3. **Widget tests with Riverpod overrides** cover disclosure, permission outcomes, preview/loading/result/empty/error screens, debounce, counters, 10/60-second actions, settings navigation, and absence of technical error text.
 4. **Pigeon/native tests** cover generated-contract drift, a fake Host API, valid/empty/missing files, async completion, resource release, and at least one Dart-to-native call on each platform.
 5. **Integration tests** cover the complete deterministic flow with fake camera and OCR adapters. Live camera and OCR claims come only from native real-device runs.
@@ -264,6 +267,6 @@ The highest-leverage completion steps are D0 document reconciliation, state-mach
 
 - [Altinus assignment README, pinned commit `cb7c0d5323e9c0f347253cf52c09594e18342ced`](https://github.com/git-artinus/artinus-fe-recurit/blob/cb7c0d5323e9c0f347253cf52c09594e18342ced/README.md)
 - [Flutter integration testing](https://docs.flutter.dev/testing/integration-tests), [performance profiling](https://docs.flutter.dev/perf/ui-performance), [memory](https://docs.flutter.dev/tools/devtools/memory), and [app architecture](https://docs.flutter.dev/app-architecture)
-- [Flutter camera](https://pub.dev/packages/camera), [Pigeon](https://pub.dev/packages/pigeon), and [Riverpod](https://riverpod.dev/docs/introduction/getting_started)
+- [Flutter camera](https://pub.dev/packages/camera), [Pigeon](https://pub.dev/packages/pigeon), [Riverpod](https://riverpod.dev/docs/introduction/getting_started), and [Dio](https://pub.dev/packages/dio)
 - [Firebase AI Logic](https://firebase.google.com/docs/ai-logic), [Gemini API troubleshooting](https://ai.google.dev/gemini-api/docs/troubleshooting), and [Google ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition/v2)
 - [Apple privacy guidance](https://developer.apple.com/design/human-interface-guidelines/privacy) and [Android runtime permission guidance](https://developer.android.com/training/permissions/requesting)
