@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:altinus_ocr/app.dart';
+import 'package:altinus_ocr/bootstrap/firebase_cloud_bootstrap.dart';
 import 'package:altinus_ocr/features/camera/camera_plugin_repository.dart';
 import 'package:altinus_ocr/features/disclosure/disclosure_store.dart';
 import 'package:altinus_ocr/features/ocr/application/ocr_providers.dart';
@@ -28,10 +29,15 @@ void main() {
     expect(find.text('ARTINUS OCR'), findsOneWidget);
   });
 
-  test('production defaults compose every synchronous adapter', () {
-    final container = ProviderContainer();
+  test('default production composition stays local and pending', () async {
+    final runtime = _RecordingFirebaseCloudRuntime();
+    final gateway = await createFirebaseModelGateway(runtime: runtime);
+    final container = ProviderContainer(
+      overrides: [firebaseModelGatewayProvider.overrideWithValue(gateway)],
+    );
     addTearDown(container.dispose);
 
+    expect(runtime.calls, isEmpty);
     expect(
       container.read(cameraRepositoryProvider),
       isA<CameraPluginRepository>(),
@@ -78,6 +84,26 @@ void main() {
       );
     },
   );
+}
+
+final class _RecordingFirebaseCloudRuntime implements FirebaseCloudRuntime {
+  final List<String> calls = <String>[];
+
+  @override
+  Future<void> initialize() async {
+    calls.add('firebase.initialize');
+  }
+
+  @override
+  Future<void> activateAppCheck() async {
+    calls.add('appCheck.activate');
+  }
+
+  @override
+  FirebaseModelGateway createGateway() {
+    calls.add('gateway.create');
+    return FirebaseSdkModelGateway();
+  }
 }
 
 final class _AcceptedDisclosureStore implements DisclosureStore {

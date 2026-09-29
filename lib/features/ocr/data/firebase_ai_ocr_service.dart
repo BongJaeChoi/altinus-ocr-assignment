@@ -57,6 +57,19 @@ final class FirebaseConfigurationPendingGateway
       );
 }
 
+final class FirebaseConfigurationFailedGateway implements FirebaseModelGateway {
+  const FirebaseConfigurationFailedGateway();
+
+  @override
+  bool get configurationPending => false;
+
+  @override
+  Future<FirebaseModelResponse> generate(FirebaseModelRequest request) =>
+      Future<FirebaseModelResponse>.error(
+        OcrFailure.of(OcrFailureKind.configuration),
+      );
+}
+
 typedef OcrImageFileReader = Future<Uint8List> Function(File file);
 
 typedef FirebaseGenerateForTest = Future<GenerateContentResponse> Function({

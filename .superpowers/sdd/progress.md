@@ -30,8 +30,8 @@
 | Task | Status | Commit | Review |
 | --- | --- | --- | --- |
 | 1–2. Firebase project/apps and durable mobile identity | complete | `4623cf3..82394f0` | Approved; remote project/apps, Pigeon stability, focused Dart/native tests independently verified |
-| 3. Generated Firebase configuration | pending | — | — |
-| 4. Opt-in Firebase/App Check bootstrap | pending | — | — |
+| 3. Generated Firebase configuration | complete | `82394f0..6e4887e` | Approved; exact remote inventory, generated identities, focused test, native locks, Android/iOS builds verified |
+| 4. Opt-in Firebase/App Check bootstrap | complete | `HEAD` | RED/GREEN bootstrap ordering, default-local composition, and full Flutter regression verified |
 | 5. Android registered signing identity | pending | — | — |
 | 6. Apple signing and App Check gate | pending | — | Requires action-time Team authorization before mutation |
 | 7. Live cloud/device/final evidence | pending | — | — |
