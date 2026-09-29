@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../camera/camera_plugin_repository.dart';
 import '../../camera/camera_repository.dart';
 import '../../disclosure/disclosure_store.dart';
 import '../domain/ocr_ports.dart';
@@ -10,7 +11,7 @@ typedef OcrNow = DateTime Function();
 typedef OcrRetryDelay = Duration Function(int failedAttempt);
 
 final cameraRepositoryProvider = Provider<CameraRepository>(
-  (ref) => throw UnsupportedError('CameraRepository must be provided'),
+  (ref) => CameraPluginRepository(),
 );
 
 final disclosureStoreProvider = Provider<DisclosureStore>(

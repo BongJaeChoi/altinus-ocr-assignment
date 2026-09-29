@@ -54,6 +54,7 @@ final class ControllableCameraRepository implements CameraRepository {
     this.flashSupported = true,
     this.holdInitialize = false,
     this.holdDispose = false,
+    this.initializeError,
     this.disposeError,
   });
 
@@ -61,6 +62,7 @@ final class ControllableCameraRepository implements CameraRepository {
   bool flashSupported;
   bool holdInitialize;
   bool holdDispose;
+  Object? initializeError;
   Object? disposeError;
   int initializeCount = 0;
   int activeInitializationCount = 0;
@@ -86,6 +88,9 @@ final class ControllableCameraRepository implements CameraRepository {
         pending = _HeldInitialization();
         _pendingInitializations.add(pending);
         await pending.completer.future;
+      }
+      if (initializeError case final error?) {
+        throw error;
       }
       if (pending?.cancelled != true) {
         liveSessionCount += 1;

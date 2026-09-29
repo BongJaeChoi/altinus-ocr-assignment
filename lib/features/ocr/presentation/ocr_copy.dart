@@ -17,6 +17,9 @@ abstract final class OcrCopy {
   static const previewTitle = '글자를 촬영해 주세요';
   static const previewBody = '글자가 선명하고 화면 안에 들어오도록 맞춰 주세요.';
   static const capture = '촬영';
+  static const flash = '플래시';
+  static const flashAuto = '자동';
+  static const flashOff = '끄기';
   static const capturing = '사진을 촬영하고 있어요.';
   static const recognizing = '글자를 인식하고 있어요.';
   static const takingLonger = '조금 더 시간이 걸리고 있어요.';

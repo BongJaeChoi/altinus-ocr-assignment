@@ -15,6 +15,71 @@ import '../../../support/ocr_fakes.dart';
 
 void main() {
   group('startup and camera ownership', () {
+    for (final testCase in const [
+      (
+        CameraFailure(CameraFailureKind.unavailable),
+        OcrFailureKind.cameraUnavailable,
+      ),
+      (
+        CameraFailure(CameraFailureKind.initialization),
+        OcrFailureKind.cameraInitialization,
+      ),
+      (
+        CameraFailure(CameraFailureKind.interrupted),
+        OcrFailureKind.cameraInterrupted,
+      ),
+    ]) {
+      test('maps ${testCase.$1.kind} to an explicit domain failure', () {
+        fakeAsync((async) {
+          final harness = _Harness(async, cameraInitializeError: testCase.$1);
+
+          unawaited(harness.controller.start());
+          async.flushMicrotasks();
+
+          final error = harness.state as RecoverableError;
+          expect(error.failure.kind, testCase.$2);
+          harness.dispose(async);
+        });
+      });
+    }
+
+    test('maps camera capture failure to an explicit domain failure', () {
+      fakeAsync((async) {
+        final harness = _Harness(async)..start(async);
+        unawaited(harness.controller.capture());
+        harness.camera.failCapture(
+          0,
+          const CameraFailure(CameraFailureKind.capture),
+        );
+        async.flushMicrotasks();
+
+        final error = harness.state as RecoverableError;
+        expect(error.failure.kind, OcrFailureKind.cameraCapture);
+        harness.dispose(async);
+      });
+    });
+
+    test('adopts a stale adapter path when direct deletion fails', () {
+      fakeAsync((async) {
+        final harness = _Harness(async)..start(async);
+        unawaited(harness.controller.capture());
+        harness.camera.failCapture(
+          0,
+          const CameraFailure(
+            CameraFailureKind.interrupted,
+            cleanupPath: '/owned/stale-adapter.jpg',
+          ),
+        );
+        async.flushMicrotasks();
+
+        expect(
+          harness.files.cleanedPaths,
+          contains('/owned/stale-adapter.jpg'),
+        );
+        harness.dispose(async);
+      });
+    });
+
     test('unaccepted disclosure stops before camera initialization', () {
       fakeAsync((async) {
         final harness = _Harness(async, disclosureAccepted: false);
@@ -160,7 +225,7 @@ void main() {
       });
     });
 
-    test('failed inactive teardown stays retryable without leaked errors', () {
+    test('controller can retry a repository that proves later release', () {
       fakeAsync((async) {
         final harness = _Harness(async)..start(async);
         harness.camera.disposeError = StateError('private detail');
@@ -362,6 +427,65 @@ void main() {
         harness.dispose(async);
       });
     });
+
+    test(
+      'resume restarts boot held on orphan cleanup and stales the old start',
+      () {
+        fakeAsync((async) {
+          final harness = _Harness(async, holdCleanupOrphans: true);
+          unawaited(harness.controller.start());
+          async.flushMicrotasks();
+
+          unawaited(harness.controller.onInactive());
+          unawaited(harness.controller.onResumed());
+          async.flushMicrotasks();
+
+          expect(harness.files.cleanupOrphansCount, 2);
+          harness.files.completeOrphanCleanup(1);
+          async.flushMicrotasks();
+          expect(harness.state, isA<PreviewReady>());
+          expect(harness.camera.initializeCount, 1);
+
+          harness.files.completeOrphanCleanup(0);
+          async.flushMicrotasks();
+          expect(harness.state, isA<PreviewReady>());
+          expect(harness.camera.initializeCount, 1);
+          harness.dispose(async);
+        });
+      },
+    );
+
+    test(
+      'resume restarts boot held on disclosure and preserves unaccepted branch',
+      () {
+        fakeAsync((async) {
+          final harness = _Harness(
+            async,
+            disclosureAccepted: false,
+            holdDisclosureRead: true,
+          );
+          unawaited(harness.controller.start());
+          async.flushMicrotasks();
+
+          unawaited(harness.controller.onInactive());
+          unawaited(harness.controller.onResumed());
+          async.flushMicrotasks();
+
+          expect(harness.disclosure.hasAcceptedCount, 2);
+          harness.disclosure.completeHasAccepted(1);
+          async.flushMicrotasks();
+          expect(harness.state, isA<DisclosureRequired>());
+          expect(harness.camera.initializeCount, 0);
+
+          harness.disclosure.accepted = true;
+          harness.disclosure.completeHasAccepted(0);
+          async.flushMicrotasks();
+          expect(harness.state, isA<DisclosureRequired>());
+          expect(harness.camera.initializeCount, 0);
+          harness.dispose(async);
+        });
+      },
+    );
 
     test('inactive abandons a pending disclosure token independently', () {
       fakeAsync((async) {
@@ -1435,9 +1559,11 @@ final class _Harness {
   _Harness(
     FakeAsync async, {
     CameraPermissionState cameraPermission = CameraPermissionState.granted,
+    Object? cameraInitializeError,
     Object? cameraDisposeError,
     bool disclosureAccepted = true,
     bool holdDisclosureAccept = false,
+    bool holdDisclosureRead = false,
     Object? hasAcceptedError,
     Object? disclosureAcceptError,
     bool prepareImmediately = true,
@@ -1448,10 +1574,12 @@ final class _Harness {
     Object? settingsError,
   }) : camera = ControllableCameraRepository(
          permission: cameraPermission,
+         initializeError: cameraInitializeError,
          disposeError: cameraDisposeError,
        ),
        disclosure = MemoryDisclosureStore(
          accepted: disclosureAccepted,
+         holdHasAccepted: holdDisclosureRead,
          holdAccept: holdDisclosureAccept,
          hasAcceptedError: hasAcceptedError,
          acceptError: disclosureAcceptError,

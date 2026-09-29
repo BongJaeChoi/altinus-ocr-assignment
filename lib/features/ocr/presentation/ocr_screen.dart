@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../camera/camera_models.dart';
+import '../../camera/camera_preview_surface.dart';
 import '../application/ocr_flow_controller.dart';
 import '../application/ocr_flow_state.dart';
+import '../application/ocr_providers.dart';
 import '../domain/ocr_engine.dart';
 import 'ocr_copy.dart';
 
@@ -13,10 +18,14 @@ final class OcrScreen extends ConsumerStatefulWidget {
   ConsumerState<OcrScreen> createState() => _OcrScreenState();
 }
 
-final class _OcrScreenState extends ConsumerState<OcrScreen> {
+final class _OcrScreenState extends ConsumerState<OcrScreen>
+    with WidgetsBindingObserver {
+  bool _inactiveForwarded = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Start on the next frame so a widget removed during this first frame
       // cannot read its provider after disposal.
@@ -24,10 +33,46 @@ final class _OcrScreenState extends ConsumerState<OcrScreen> {
         if (!mounted) {
           return;
         }
+        final lifecycleState = WidgetsBinding.instance.lifecycleState;
+        if (lifecycleState != null &&
+            lifecycleState != AppLifecycleState.resumed) {
+          _forwardInactiveOnce();
+          return;
+        }
         ref.read(ocrFlowControllerProvider.notifier).start();
       });
       WidgetsBinding.instance.scheduleFrame();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) {
+      return;
+    }
+    if (state == AppLifecycleState.resumed) {
+      if (!_inactiveForwarded) {
+        return;
+      }
+      _inactiveForwarded = false;
+      unawaited(ref.read(ocrFlowControllerProvider.notifier).onResumed());
+    } else {
+      _forwardInactiveOnce();
+    }
+  }
+
+  void _forwardInactiveOnce() {
+    if (!mounted || _inactiveForwarded) {
+      return;
+    }
+    _inactiveForwarded = true;
+    unawaited(ref.read(ocrFlowControllerProvider.notifier).onInactive());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override
@@ -56,7 +101,15 @@ final class _OcrScreenState extends ConsumerState<OcrScreen> {
           controller.recapture();
         },
       ),
-      PreviewReady() => _PreviewContent(
+      PreviewReady(:final flashSupported, :final flashMode) => _PreviewContent(
+        preview: CameraPreviewSurface(
+          repository: ref.watch(cameraRepositoryProvider),
+        ),
+        flashSupported: flashSupported,
+        flashMode: flashMode,
+        onFlashChanged: (mode) {
+          controller.setFlash(mode);
+        },
         onCapture: () {
           controller.capture();
         },
@@ -253,8 +306,18 @@ final class _PermissionContent extends StatelessWidget {
 }
 
 final class _PreviewContent extends StatelessWidget {
-  const _PreviewContent({required this.onCapture});
+  const _PreviewContent({
+    required this.preview,
+    required this.flashSupported,
+    required this.flashMode,
+    required this.onFlashChanged,
+    required this.onCapture,
+  });
 
+  final Widget preview;
+  final bool flashSupported;
+  final CameraFlashMode flashMode;
+  final ValueChanged<CameraFlashMode> onFlashChanged;
   final VoidCallback onCapture;
 
   @override
@@ -263,6 +326,31 @@ final class _PreviewContent extends StatelessWidget {
       const _Heading(OcrCopy.previewTitle),
       const SizedBox(height: 12),
       const Text(OcrCopy.previewBody, textAlign: TextAlign.center),
+      const SizedBox(height: 16),
+      SizedBox(height: 280, width: double.infinity, child: preview),
+      if (flashSupported) ...[
+        const SizedBox(height: 16),
+        const Text(OcrCopy.flash),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 12,
+          alignment: WrapAlignment.center,
+          children: [
+            ChoiceChip(
+              key: const ValueKey('flash-auto'),
+              label: const Text(OcrCopy.flashAuto),
+              selected: flashMode == CameraFlashMode.auto,
+              onSelected: (_) => onFlashChanged(CameraFlashMode.auto),
+            ),
+            ChoiceChip(
+              key: const ValueKey('flash-off'),
+              label: const Text(OcrCopy.flashOff),
+              selected: flashMode == CameraFlashMode.off,
+              onSelected: (_) => onFlashChanged(CameraFlashMode.off),
+            ),
+          ],
+        ),
+      ],
       const SizedBox(height: 24),
       _PrimaryAction(
         key: const ValueKey('capture'),

@@ -59,9 +59,13 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
   int _cameraOperationId = 0;
   Future<void>? _cameraTeardownFuture;
   bool _captureInFlight = false;
+  bool _flashInFlight = false;
   bool _cameraReady = false;
+  bool _flashSupported = false;
+  CameraFlashMode _flashMode = CameraFlashMode.auto;
   bool _cameraNeedsDispose = false;
   bool _needsPreviewOnResume = false;
+  bool _needsBootOnResume = false;
   bool _disposed = false;
   String? _canonicalPath;
 
@@ -140,6 +144,7 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
 
   Future<void> capture() async {
     if (_captureInFlight ||
+        _flashInFlight ||
         _ownedFiles.cleanupInFlight ||
         state is! PreviewReady) {
       return;
@@ -179,6 +184,9 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
       _startBudgetTimers(transactionId);
       await _prepareAndRecognize(transactionId, fileOwnerId, image.path);
     } catch (error) {
+      if (error case CameraFailure(cleanupPath: final cleanupPath?)) {
+        _ownedFiles.record(fileOwnerId, cleanupPath);
+      }
       _ownedFiles.settleProduction(pathProduction);
       _clearPendingCapture(pathProduction);
       Object failure = error;
@@ -213,6 +221,37 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
         takingLonger: false,
         startedAt: current.startedAt,
       );
+    }
+  }
+
+  Future<void> setFlash(CameraFlashMode mode) async {
+    final current = state;
+    if (_flashInFlight ||
+        current is! PreviewReady ||
+        !current.flashSupported ||
+        current.flashMode == mode) {
+      return;
+    }
+    _flashInFlight = true;
+    final operationId = _cameraOperationId;
+    try {
+      await _camera.setFlash(mode);
+      if (!_ownsCameraOperation(operationId) || state is! PreviewReady) {
+        return;
+      }
+      _flashMode = mode;
+      state = PreviewReady(flashSupported: true, flashMode: mode);
+    } catch (_) {
+      if (!_ownsCameraOperation(operationId) || state is! PreviewReady) {
+        return;
+      }
+      _flashSupported = false;
+      _flashMode = CameraFlashMode.auto;
+      state = const PreviewReady();
+    } finally {
+      if (operationId == _cameraOperationId) {
+        _flashInFlight = false;
+      }
     }
   }
 
@@ -302,7 +341,10 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
       return;
     }
     if (_cameraReady) {
-      state = const PreviewReady();
+      state = PreviewReady(
+        flashSupported: _flashSupported,
+        flashMode: _flashMode,
+      );
       return;
     }
     await _initializeCamera();
@@ -325,10 +367,12 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
   }
 
   Future<void> onInactive() async {
+    final needsBoot = state is Booting;
     final needsPreview = switch (state) {
       PreviewReady() || CameraInitializing() || Capturing() => true,
       _ => false,
     };
+    _needsBootOnResume = needsBoot;
     _needsPreviewOnResume = needsPreview;
     final operationId = ++_cameraOperationId;
     _invalidateEntryTokens();
@@ -339,6 +383,7 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
     _pendingCaptureOwnerId = null;
     _pendingCaptureProduction = null;
     _captureInFlight = false;
+    _flashInFlight = false;
     _cameraReady = false;
     if (_cameraNeedsDispose) {
       try {
@@ -357,6 +402,11 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
   }
 
   Future<void> onResumed() async {
+    if (_needsBootOnResume && state is Booting) {
+      _needsBootOnResume = false;
+      await start();
+      return;
+    }
     if (!_needsPreviewOnResume || !_flowNeedsPreview(state)) {
       return;
     }
@@ -387,8 +437,22 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
         return;
       }
       if (permission == CameraPermissionState.granted) {
+        var flashSupported = false;
+        try {
+          flashSupported = await _camera.supportsFlash();
+        } catch (_) {
+          flashSupported = false;
+        }
+        if (!_ownsCameraOperation(operationId)) {
+          return;
+        }
         _cameraReady = true;
-        state = const PreviewReady();
+        _flashSupported = flashSupported;
+        _flashMode = CameraFlashMode.auto;
+        state = PreviewReady(
+          flashSupported: flashSupported,
+          flashMode: CameraFlashMode.auto,
+        );
       } else {
         _cameraReady = false;
         state = PermissionDenied(permission);
@@ -619,6 +683,7 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
     _pendingCaptureProduction = null;
     _cameraOperationId += 1;
     _captureInFlight = false;
+    _flashInFlight = false;
   }
 
   void _invalidateEntryTokens() {
@@ -633,8 +698,23 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
     _deadlineTimer = null;
   }
 
-  OcrFailure _domainFailure(Object error) =>
-      error is OcrFailure ? error : OcrFailure.of(OcrFailureKind.service);
+  OcrFailure _domainFailure(Object error) {
+    if (error is OcrFailure) {
+      return error;
+    }
+    if (error is CameraFailure) {
+      return OcrFailure.of(switch (error.kind) {
+        CameraFailureKind.unavailable => OcrFailureKind.cameraUnavailable,
+        CameraFailureKind.initialization ||
+        CameraFailureKind.flashUnsupported =>
+          OcrFailureKind.cameraInitialization,
+        CameraFailureKind.capture ||
+        CameraFailureKind.captureInProgress => OcrFailureKind.cameraCapture,
+        CameraFailureKind.interrupted => OcrFailureKind.cameraInterrupted,
+      });
+    }
+    return OcrFailure.of(OcrFailureKind.service);
+  }
 
   String _label(int transactionId) => 'ocr-$transactionId';
 

@@ -25,7 +25,13 @@ final class PermissionDenied extends OcrFlowState {
 }
 
 final class PreviewReady extends OcrFlowState {
-  const PreviewReady();
+  const PreviewReady({
+    this.flashSupported = false,
+    this.flashMode = CameraFlashMode.auto,
+  });
+
+  final bool flashSupported;
+  final CameraFlashMode flashMode;
 }
 
 final class Capturing extends OcrFlowState {
