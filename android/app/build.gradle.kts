@@ -12,25 +12,53 @@ plugins {
 
 val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties()
-if (keystorePropertiesFile.isFile) {
-    keystorePropertiesFile.inputStream().use(keystoreProperties::load)
+if (keystorePropertiesFile.exists()) {
+    if (!keystorePropertiesFile.isFile) {
+        throw GradleException("ARTINUS signing configuration is invalid")
+    }
+    try {
+        keystorePropertiesFile.inputStream().use(keystoreProperties::load)
+    } catch (_: Exception) {
+        throw GradleException("ARTINUS signing configuration is invalid")
+    }
 }
 
 val releaseSigningPropertyNames =
     listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+val releaseSigningPropertiesComplete =
+    releaseSigningPropertyNames.all { propertyName ->
+        !keystoreProperties.getProperty(propertyName).isNullOrBlank()
+    }
+if (keystorePropertiesFile.exists() && !releaseSigningPropertiesComplete) {
+    throw GradleException("ARTINUS signing configuration is incomplete")
+}
+
+val expectedReleaseSigningAlias = "artinus-ocr-upload"
+val releaseStoreFile =
+    keystoreProperties.getProperty("storeFile")
+        ?.takeIf(String::isNotBlank)
+        ?.let(project::file)
 val releaseSigningConfigured =
     keystorePropertiesFile.isFile &&
-        releaseSigningPropertyNames.all { propertyName ->
-            !keystoreProperties.getProperty(propertyName).isNullOrBlank()
-        }
+        releaseSigningPropertiesComplete &&
+        keystoreProperties.getProperty("keyAlias") == expectedReleaseSigningAlias &&
+        releaseStoreFile?.isFile == true
+if (keystorePropertiesFile.exists() && !releaseSigningConfigured) {
+    throw GradleException("ARTINUS signing configuration is invalid")
+}
 
-val dartDefines = providers.gradleProperty("dart-defines").orNull
-    ?.split(',')
-    ?.filter(String::isNotBlank)
-    ?.map { encodedDefine ->
-        String(Base64.getDecoder().decode(encodedDefine), Charsets.UTF_8)
+val dartDefines =
+    try {
+        providers.gradleProperty("dart-defines").orNull
+            ?.split(',')
+            ?.filter(String::isNotBlank)
+            ?.map { encodedDefine ->
+                String(Base64.getDecoder().decode(encodedDefine), Charsets.UTF_8)
+            }
+            .orEmpty()
+    } catch (_: IllegalArgumentException) {
+        throw GradleException("ARTINUS build configuration contains invalid dart defines")
     }
-    .orEmpty()
 val cloudEvidenceEnabled = dartDefines.contains("ARTINUS_CLOUD_EVIDENCE=true")
 if (cloudEvidenceEnabled && !releaseSigningConfigured) {
     throw GradleException(
@@ -66,7 +94,7 @@ android {
     signingConfigs {
         if (releaseSigningConfigured) {
             create("registeredRelease") {
-                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storeFile = releaseStoreFile
                 storePassword = keystoreProperties.getProperty("storePassword")
                 keyAlias = keystoreProperties.getProperty("keyAlias")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
@@ -82,6 +110,12 @@ android {
                 } else {
                     signingConfigs.getByName("debug")
                 }
+        }
+
+        if (cloudEvidenceEnabled) {
+            configureEach {
+                signingConfig = signingConfigs.getByName("registeredRelease")
+            }
         }
     }
 }

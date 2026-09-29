@@ -32,7 +32,7 @@
 | 1–2. Firebase project/apps and durable mobile identity | complete | `4623cf3..82394f0` | Approved; remote project/apps, Pigeon stability, focused Dart/native tests independently verified |
 | 3. Generated Firebase configuration | complete | `82394f0..6e4887e` | Approved; exact remote inventory, generated identities, focused test, native locks, Android/iOS builds verified |
 | 4. Opt-in Firebase/App Check bootstrap | complete | `HEAD` | RED/GREEN bootstrap ordering, default-local composition, and full Flutter regression verified |
-| 5. Android registered signing identity | complete | `HEAD` | Conditional signing, Firebase SHA-256, and Play Integrity verified; AI Logic enforcement unavailable until that API is started |
+| 5. Android registered signing identity | complete | `76807d1..HEAD` | Follow-up verified: partial/invalid secrets and malformed defines fail closed; every enabled Android build type uses the registered certificate |
 | 6. Apple signing and App Check gate | pending | — | Requires action-time Team authorization before mutation |
 | 7. Live cloud/device/final evidence | pending | — | — |
 

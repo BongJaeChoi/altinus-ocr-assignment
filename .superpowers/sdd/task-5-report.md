@@ -67,3 +67,58 @@ Aggregate `./gradlew test` in the Korean-character worktree is not a clean app-o
 
 - Start/configure Firebase AI Logic before an enforcement toggle can exist; Task 5 did not do so because the requested boundary was provider registration and enforcement-state confirmation without billing changes.
 - Task 7 must perform live App Check token/cloud evidence on a connected Android device.
+
+## Review follow-up — 2026-09-29 09:26 KST
+
+### Findings resolved
+
+- A present `android/key.properties` now fails Gradle configuration when any required value is missing or blank. It cannot silently select the debug key for an ordinary release.
+- A complete file is accepted only when `keyAlias` is exactly `artinus-ocr-upload` and the resolved `storeFile` exists as a regular file.
+- These invalid local states use only stable sanitized diagnostics:
+  - `ARTINUS signing configuration is incomplete`
+  - `ARTINUS signing configuration is invalid`
+- Malformed Base64 in the comma-separated `dart-defines` property is contained as `ARTINUS build configuration contains invalid dart defines`; decoder details are not propagated.
+- When `ARTINUS_CLOUD_EVIDENCE=true`, every Android build type is assigned `registeredRelease` through `configureEach`. The enabled signing report shows debug, release, profile, and debugAndroidTest all using the approved alias and public SHA-256.
+
+### RED evidence
+
+An isolated ASCII clean clone at commit `76807d1` used only temporary untracked fixtures. Before the production change:
+
+- partial properties did not produce the required incomplete-configuration failure;
+- a wrong alias did not produce the required invalid-configuration failure;
+- a nonexistent store file did not produce the required invalid-configuration failure;
+- malformed Base64 did not produce the sanitized dart-defines failure; and
+- the cloud-enabled signing report still showed debug as `Config: debug`, alias `AndroidDebugKey`.
+
+The fixture harness exited `4`, one failure for each unsafe configuration case, establishing the expected RED behavior without using owner passwords.
+
+### GREEN evidence
+
+| Required check | Fresh result |
+| --- | --- |
+| Clean checkout, no key, default debug | PASS — `app-debug.apk` built |
+| No key, enabled release | PASS — rejected before compilation with registered-identity message |
+| No key, enabled debug | PASS — rejected before compilation with the same stable message |
+| Present partial properties | PASS — rejected with sanitized incomplete-configuration message |
+| Wrong alias | PASS — rejected with sanitized invalid-configuration message |
+| Nonexistent store file | PASS — rejected with sanitized invalid-configuration message |
+| Malformed Base64 dart defines | PASS — rejected with sanitized dart-defines message |
+| Complete owner config, enabled debug | PASS — APK built and `apksigner` verified |
+| Complete owner config, enabled release | PASS — 86.1 MB APK built and `apksigner` verified |
+| Enabled signing report | PASS — debug/release/profile/debugAndroidTest use `registeredRelease` |
+| APK/Firebase identity comparison | PASS — enabled debug and release match the sole Firebase SHA-256 |
+| ASCII `app:testDebugUnitTest app:lintDebug` | PASS — `BUILD SUCCESSFUL` |
+| ASCII `flutter analyze` | PASS — no issues |
+| Focused bootstrap regression | PASS — 5/5 |
+| Full Flutter regression | PASS — 222/222 |
+
+Public certificate SHA-256 remained `B9:61:41:1C:0F:D0:2D:24:ED:94:CD:8A:06:A2:D2:C5:5B:19:58:6C:AD:6F:F2:4C:4E:8A:89:8E:4F:6F:E5:26`. The Firebase SHA query was read-only and returned exactly one SHA-256 entry; Firebase/App Check configuration was not mutated.
+
+### Fix self-review
+
+- Failure messages contain no field names, paths, aliases supplied by fixtures, passwords, or decoder exceptions.
+- Captured-output negative assertions confirmed that partial configuration prints none of the signing field/path tokens and malformed Base64 prints no decoder exception text.
+- Missing `key.properties` still preserves clean-checkout default debug/release behavior, but a present invalid file always fails closed.
+- Cloud-enabled configuration fails before Android compilation when the identity is absent; when present, no enabled debug/profile/release artifact can retain debug signing.
+- Temporary property/store fixtures stayed outside tracked state. Owner `android/key.properties`, the keystore, password file, APKs, command logs, and environment data remain untracked.
+- No Firebase/App Check state, billing, Play Console, Apple state, remote Git state, or application state changed during the follow-up.
