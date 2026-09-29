@@ -49,18 +49,22 @@ final class FixtureImageFactory {
         ),
         textDirection: TextDirection.ltr,
         maxLines: 3,
-      )..layout(maxWidth: 1000);
-
-      if (variant == FixtureImageVariant.rotated) {
-        canvas
-          ..save()
-          ..translate(_width / 2, _height / 2)
-          ..rotate(math.pi / 2)
-          ..translate(-painter.width / 2, -painter.height / 2);
-        painter.paint(canvas, Offset.zero);
-        canvas.restore();
-      } else {
-        painter.paint(canvas, const Offset(100, 240));
+      );
+      try {
+        painter.layout(maxWidth: 1000);
+        if (variant == FixtureImageVariant.rotated) {
+          canvas
+            ..save()
+            ..translate(_width / 2, _height / 2)
+            ..rotate(math.pi / 2)
+            ..translate(-painter.width / 2, -painter.height / 2);
+          painter.paint(canvas, Offset.zero);
+          canvas.restore();
+        } else {
+          painter.paint(canvas, const Offset(100, 240));
+        }
+      } finally {
+        painter.dispose();
       }
     }
 
