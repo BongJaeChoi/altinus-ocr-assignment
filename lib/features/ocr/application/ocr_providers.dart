@@ -7,6 +7,8 @@ import '../../camera/camera_repository.dart';
 import '../../disclosure/disclosure_store.dart';
 import '../data/firebase_ai_ocr_service.dart';
 import '../data/image_preparer.dart';
+import '../data/pigeon_app_settings_launcher.dart';
+import '../data/pigeon_local_ocr_service.dart';
 import '../data/temp_image_store.dart';
 import '../domain/ocr_ports.dart';
 
@@ -22,7 +24,7 @@ final disclosureStoreProvider = Provider<DisclosureStore>(
 );
 
 final firebaseModelGatewayProvider = Provider<FirebaseModelGateway>(
-  (ref) => FirebaseSdkModelGateway(),
+  (ref) => const FirebaseConfigurationPendingGateway(),
 );
 
 final cloudOcrServiceProvider = Provider<CloudOcrService>(
@@ -31,7 +33,7 @@ final cloudOcrServiceProvider = Provider<CloudOcrService>(
 );
 
 final localOcrServiceProvider = Provider<LocalOcrService>(
-  (ref) => throw UnsupportedError('LocalOcrService must be provided'),
+  (ref) => PigeonLocalOcrService(),
 );
 
 final imagePreparerProvider = Provider<ImagePreparer>(
@@ -43,7 +45,7 @@ final transactionFilesProvider = Provider<TransactionFiles>(
 );
 
 final appSettingsLauncherProvider = Provider<AppSettingsLauncher>(
-  (ref) => throw UnsupportedError('AppSettingsLauncher must be provided'),
+  (ref) => PigeonAppSettingsLauncher(),
 );
 
 final ocrNowProvider = Provider<OcrNow>((ref) => DateTime.now);

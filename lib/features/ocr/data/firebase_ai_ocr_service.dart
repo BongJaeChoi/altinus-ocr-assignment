@@ -36,6 +36,22 @@ final class FirebaseModelResponse {
 
 final class FirebaseModelTransientException implements Exception {}
 
+/// Safe composition default while no Firebase project has been authorized.
+///
+/// A configured bootstrap replaces this gateway with [FirebaseSdkModelGateway]
+/// after `Firebase.initializeApp`; keeping the pending state typed prevents an
+/// uninitialized SDK call from crashing normal app startup.
+final class FirebaseConfigurationPendingGateway
+    implements FirebaseModelGateway {
+  const FirebaseConfigurationPendingGateway();
+
+  @override
+  Future<FirebaseModelResponse> generate(FirebaseModelRequest request) =>
+      Future<FirebaseModelResponse>.error(
+        OcrFailure.of(OcrFailureKind.configuration),
+      );
+}
+
 typedef OcrImageFileReader = Future<Uint8List> Function(File file);
 
 typedef FirebaseGenerateForTest = Future<GenerateContentResponse> Function({
