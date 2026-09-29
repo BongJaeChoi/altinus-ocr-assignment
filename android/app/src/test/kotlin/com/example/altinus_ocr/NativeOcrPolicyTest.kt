@@ -10,20 +10,35 @@ import org.junit.Test
 
 class NativeOcrPolicyTest {
     @Test
-    fun `accepts only an existing regular file`() {
+    fun `accepts an existing regular path without claiming image validity`() {
         val directory = Files.createTempDirectory("native-ocr-policy").toFile()
-        val image = File(directory, "capture.jpg").apply { writeBytes(byteArrayOf(1)) }
+        val arbitraryFile = File(directory, "not-an-image.txt").apply { writeText("text") }
 
         try {
-            assertTrue(NativeOcrPolicy.isReadableImagePath(image.path))
+            assertTrue(NativeOcrPolicy.isExistingRegularFilePath(arbitraryFile.path))
             assertFalse(
-                NativeOcrPolicy.isReadableImagePath(File(directory, "missing.jpg").path),
+                NativeOcrPolicy.isExistingRegularFilePath(File(directory, "missing.jpg").path),
             )
-            assertFalse(NativeOcrPolicy.isReadableImagePath(directory.path))
-            assertFalse(NativeOcrPolicy.isReadableImagePath(""))
+            assertFalse(NativeOcrPolicy.isExistingRegularFilePath(directory.path))
+            assertFalse(NativeOcrPolicy.isExistingRegularFilePath(""))
         } finally {
-            image.delete()
+            arbitraryFile.delete()
             directory.delete()
+        }
+    }
+
+    @Test
+    fun `accepts a symbolic link to an existing regular file`() {
+        val directory = Files.createTempDirectory("native-ocr-symlink")
+        val target = Files.write(directory.resolve("capture.jpg"), byteArrayOf(1))
+        val link = Files.createSymbolicLink(directory.resolve("capture-link.jpg"), target)
+
+        try {
+            assertTrue(NativeOcrPolicy.isExistingRegularFilePath(link.toString()))
+        } finally {
+            Files.deleteIfExists(link)
+            Files.deleteIfExists(target)
+            Files.deleteIfExists(directory)
         }
     }
 

@@ -286,7 +286,14 @@ class NativeOcrHostApiSetup {
   /// Sets up an instance of `NativeOcrHostApi` to handle messages through the `binaryMessenger`.
   static func setUp(binaryMessenger: FlutterBinaryMessenger, api: NativeOcrHostApi?, messageChannelSuffix: String = "") {
     let channelSuffix = messageChannelSuffix.count > 0 ? ".\(messageChannelSuffix)" : ""
-    let recognizeKoreanChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.altinus_ocr.NativeOcrHostApi.recognizeKorean\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    #if os(iOS)
+      let taskQueue = binaryMessenger.makeBackgroundTaskQueue?()
+    #else
+      let taskQueue: FlutterTaskQueue? = nil
+    #endif
+    let recognizeKoreanChannel = taskQueue == nil
+      ? FlutterBasicMessageChannel(name: "dev.flutter.pigeon.altinus_ocr.NativeOcrHostApi.recognizeKorean\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+      : FlutterBasicMessageChannel(name: "dev.flutter.pigeon.altinus_ocr.NativeOcrHostApi.recognizeKorean\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec, taskQueue: taskQueue)
     if let api = api {
       recognizeKoreanChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]

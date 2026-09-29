@@ -288,8 +288,9 @@ interface NativeOcrHostApi {
     @JvmOverloads
     fun setUp(binaryMessenger: BinaryMessenger, api: NativeOcrHostApi?, messageChannelSuffix: String = "") {
       val separatedMessageChannelSuffix = if (messageChannelSuffix.isNotEmpty()) ".$messageChannelSuffix" else ""
+      val taskQueue = binaryMessenger.makeBackgroundTaskQueue()
       run {
-        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.altinus_ocr.NativeOcrHostApi.recognizeKorean$separatedMessageChannelSuffix", codec)
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.altinus_ocr.NativeOcrHostApi.recognizeKorean$separatedMessageChannelSuffix", codec, taskQueue)
         if (api != null) {
           channel.setMessageHandler { message, reply ->
             val args = message as List<Any?>

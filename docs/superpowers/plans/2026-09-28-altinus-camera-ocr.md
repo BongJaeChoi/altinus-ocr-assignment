@@ -510,7 +510,7 @@ Why:
 - Test: `test/features/ocr/data/pigeon_adapters_test.dart`
 
 **Interfaces:**
-- Produces: async `NativeOcrHostApi.recognizeKorean(String)` and `AppSettingsHostApi.open()` plus Dart adapters.
+- Produces: async `NativeOcrHostApi.recognizeKorean(String)` on a serial background task queue and platform-thread `AppSettingsHostApi.open()` plus Dart adapters.
 
 - [ ] **Step 1: Define the generator source**
 
@@ -533,6 +533,7 @@ class NativeOcrReply {
 }
 @HostApi()
 abstract class NativeOcrHostApi {
+  @TaskQueue(type: TaskQueueType.serialBackgroundThread)
   @asyncCallback
   NativeOcrReply recognizeKorean(String imagePath);
 }
@@ -592,11 +593,11 @@ dependencies {
 
 - [ ] **Step 2: Implement async OCR exactly at the host boundary**
 
-Reject a missing/non-file path. Use `InputImage.fromFilePath`, `KoreanTextRecognizerOptions.Builder().build()`, and asynchronous `process`. Blank `Text.text` becomes `NO_READABLE_TEXT`; nonblank text is returned unchanged. Return errors through the generated callback and close the recognizer on completion. Never log path or text.
+Reject a missing/non-file path and load `InputImage.fromFilePath` on the generated serial background task queue. Use `KoreanTextRecognizerOptions.Builder().build()` and asynchronous `process`. Blank `Text.text` becomes `NO_READABLE_TEXT`; nonblank text is returned unchanged. Return errors through an exactly-once generated callback, close the recognizer once on completion, and contain callback exceptions. Never log path or text.
 
 - [ ] **Step 3: Implement settings and register hosts**
 
-Open `Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))`. In `configureFlutterEngine`, register both generated host APIs against `engine.dartExecutor.binaryMessenger`.
+Open `Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))`. In `configureFlutterEngine`, register both generated host APIs against `engine.dartExecutor.binaryMessenger`. In `cleanUpFlutterEngine`, unregister both handlers, clear retained host references, and then call `super`.
 
 - [ ] **Step 4: Verify and commit**
 

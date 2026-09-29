@@ -20,6 +20,7 @@ class NativeOcrReply {
 
 @HostApi()
 abstract class NativeOcrHostApi {
+  @TaskQueue(type: TaskQueueType.serialBackgroundThread)
   @asyncCallback
   NativeOcrReply recognizeKorean(String imagePath);
 }
