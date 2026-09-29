@@ -703,3 +703,24 @@ flowchart LR
   [supported models](https://firebase.google.com/docs/ai-logic/models);
   Gemini API [troubleshooting](https://ai.google.dev/gemini-api/docs/troubleshooting)
   and [Gemini 3.5 Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite).
+
+### 2026-09-29 — cloud failover final review and commit binding
+
+- Review correction: Independent review found that the first allowlist handled
+  `RESOURCE_EXHAUSTED` but missed Firebase's documented space-separated
+  `Resource exhausted, please try again later.` form. A RED regression using
+  the official-shaped message failed as predicted. The classifier now
+  normalizes underscore/space forms and requires an anchored retryable prefix
+  followed by an exact ending or narrow punctuation boundary. Similar unrelated
+  text remains nonretryable.
+- Final result: Commit `13fc11b` contains the two-model strategy, official 429
+  regression, nonretryable one-call matrix, 1,000–1,250ms bound, live-smoke
+  selector, and evaluator documentation. Full Flutter tests passed 244/244;
+  fake integration passed 2/2; ASCII-path analysis reported 0 issues; Android
+  debug/release and app unit/lint passed; iOS debug/release no-codesign passed;
+  release credential containment passed; and the source-equivalent final ASCII
+  copy repeated the live `gemini-3.5-flash-lite` smoke successfully.
+- Independent re-review: Critical 0, Important 0. HR/recruiter 93/100 and
+  hiring manager/development lead 92/100. Physical Android/iPhone camera,
+  attestation, flash, performance, and thermal gates remain blocked and are not
+  upgraded by simulator evidence.

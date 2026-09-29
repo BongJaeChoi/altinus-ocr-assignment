@@ -76,8 +76,8 @@
 **Interfaces:**
 - Produces: evaluator-facing rationale and reproducible test evidence without secrets or recognized content.
 
-- [ ] Run `dart format --output=none --set-exit-if-changed lib test`.
-- [ ] Run focused tests, then `flutter analyze` and the full `flutter test` suite.
-- [ ] Run the deterministic fake integration test and relevant debug builds if the Dart-only change stays green.
-- [ ] Record the observed 20 RPD primary and 500 RPD fallback quota evidence, without claiming quotas that were not observed.
-- [ ] Commit with a Conventional Commit subject and a body stating what changed and why.
+- [x] Run `dart format --output=none --set-exit-if-changed lib test`.
+- [x] Run focused tests, then `flutter analyze` and the full `flutter test` suite.
+- [x] Run the deterministic fake integration test and relevant debug builds if the Dart-only change stays green.
+- [x] Record the observed 20 RPD primary and 500 RPD fallback quota evidence, without claiming quotas that were not observed.
+- [x] Commit with a Conventional Commit subject and a body stating what changed and why.
