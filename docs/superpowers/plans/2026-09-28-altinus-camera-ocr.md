@@ -617,6 +617,7 @@ Why:
 **Files:**
 - Modify: `ios/Podfile`, `ios/Podfile.lock`, `ios/Runner/AppDelegate.swift`, `ios/Runner.xcodeproj/project.pbxproj`
 - Create: `ios/Runner/MlKitNativeOcrHostApi.swift`, `IosAppSettingsHostApi.swift`
+- Add to Runner target Compile Sources (Task 10 owns this project membership): `ios/Runner/PlatformApis.g.swift`, `ios/Runner/MlKitNativeOcrHostApi.swift`, `ios/Runner/IosAppSettingsHostApi.swift`
 
 **Interfaces:**
 - Consumes: Task 8 generated Swift protocols.
@@ -636,7 +637,20 @@ Load `UIImage(contentsOfFile:)`; reject invalid input. Create `VisionImage`, ass
 
 - [ ] **Step 3: Implement settings and host registration**
 
-Open `UIApplication.openSettingsURLString` only when `canOpenURL` succeeds. Register both generated hosts against `controller.binaryMessenger` after plugin registration. Add `PlatformApis.g.swift`, `MlKitNativeOcrHostApi.swift`, and `IosAppSettingsHostApi.swift` to the Runner target’s Compile Sources phase.
+Open `UIApplication.openSettingsURLString` only when `canOpenURL` succeeds. The Flutter 3.47.5 template uses `FlutterImplicitEngineDelegate`, so keep host registration in `didInitializeImplicitFlutterEngine(_:)`. Immediately after `GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)`, use the implicit engine's application registrar for both generated setup calls:
+
+```swift
+NativeOcrHostApiSetup.setUp(
+  binaryMessenger: engineBridge.applicationRegistrar.messenger(),
+  api: MlKitNativeOcrHostApi()
+)
+AppSettingsHostApiSetup.setUp(
+  binaryMessenger: engineBridge.applicationRegistrar.messenger(),
+  api: IosAppSettingsHostApi()
+)
+```
+
+Do not use `controller.binaryMessenger`; this AppDelegate owns no explicit Flutter view controller. Task 10 must add the generated `PlatformApis.g.swift` and both handwritten host files to the Runner target's Compile Sources phase exactly once; generating or creating the files does not assign Xcode target membership.
 
 - [ ] **Step 4: Verify and commit**
 

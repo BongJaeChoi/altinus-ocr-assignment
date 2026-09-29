@@ -60,6 +60,25 @@ void main() {
       );
     });
 
+    test('maps null detected text to an invalid response failure', () async {
+      final service = PigeonLocalOcrService(
+        gateway: _FakeNativeOcrGateway(
+          reply: NativeOcrReply(status: NativeOcrStatus.textDetected),
+        ),
+      );
+
+      await expectLater(
+        service.recognize('/tmp/null.jpg'),
+        throwsA(
+          isA<OcrFailure>().having(
+            (failure) => failure.kind,
+            'kind',
+            OcrFailureKind.invalidResponse,
+          ),
+        ),
+      );
+    });
+
     test('maps a gateway exception to a bridge failure', () async {
       final service = PigeonLocalOcrService(
         gateway: _FakeNativeOcrGateway(error: StateError('bridge unavailable')),
