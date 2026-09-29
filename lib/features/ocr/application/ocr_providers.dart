@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../camera/camera_plugin_repository.dart';
 import '../../camera/camera_repository.dart';
 import '../../disclosure/disclosure_store.dart';
+import '../data/firebase_ai_ocr_service.dart';
+import '../data/image_preparer.dart';
+import '../data/temp_image_store.dart';
 import '../domain/ocr_ports.dart';
 
 typedef OcrNow = DateTime Function();
@@ -18,8 +21,13 @@ final disclosureStoreProvider = Provider<DisclosureStore>(
   (ref) => throw UnsupportedError('DisclosureStore must be provided'),
 );
 
+final firebaseModelGatewayProvider = Provider<FirebaseModelGateway>(
+  (ref) => FirebaseSdkModelGateway(),
+);
+
 final cloudOcrServiceProvider = Provider<CloudOcrService>(
-  (ref) => throw UnsupportedError('CloudOcrService must be provided'),
+  (ref) =>
+      FirebaseAiOcrService(gateway: ref.watch(firebaseModelGatewayProvider)),
 );
 
 final localOcrServiceProvider = Provider<LocalOcrService>(
@@ -27,11 +35,11 @@ final localOcrServiceProvider = Provider<LocalOcrService>(
 );
 
 final imagePreparerProvider = Provider<ImagePreparer>(
-  (ref) => throw UnsupportedError('ImagePreparer must be provided'),
+  (ref) => BoundedImagePreparer(),
 );
 
 final transactionFilesProvider = Provider<TransactionFiles>(
-  (ref) => throw UnsupportedError('TransactionFiles must be provided'),
+  (ref) => TempImageStore(),
 );
 
 final appSettingsLauncherProvider = Provider<AppSettingsLauncher>(
