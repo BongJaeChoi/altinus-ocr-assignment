@@ -73,7 +73,10 @@ Submission context from the document-pass email: GitHub repository URL due by `2
 
 ## 6. Non-goals
 
-- Cloud accounts, analytics, authentication, backend storage, and production deployment.
+- Any cloud account beyond the dedicated evaluation Firebase project, and any
+  Authentication, database/storage backend, production deployment, billing
+  attachment, or unrelated analytics. The approved Firebase AI monitoring
+  aggregate is limited to non-sensitive evaluation evidence.
 - Advanced document scanning, multi-page history, translation, or handwriting guarantees unless core criteria are already complete.
 - Visual polish that delays reliability, platform parity, or verification.
 - Any external submission or recruiter communication without explicit user authorization.

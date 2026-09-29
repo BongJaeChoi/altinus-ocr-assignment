@@ -1,29 +1,40 @@
 # ARTINUS Camera OCR
 
-Flutter로 만든 카메라 OCR 과제입니다. 후면 카메라로 정지 이미지를 촬영하고 OCR 결과를 **읽기 전용**으로 보여 줍니다. 과제 원문의 필수 흐름(프리뷰 → 촬영 → OCR → 표시), iOS/Android 패리티, 비동기 처리, 나쁜 입력·권한·OCR 오류 대응, 그리고 AI 사용 근거를 목표로 합니다. [원문 과제](https://github.com/git-artinus/artinus-fe-recurit/blob/cb7c0d5323e9c0f347253cf52c09594e18342ced/README.md)
-
-## 현재 평가 상태 — 먼저 읽어 주세요
-
-- 자동화·빌드 검증은 아래 표의 범위에서 수행했습니다.
-- **기본 체크아웃은 Firebase가 설정되지 않은 `FirebaseConfigurationPendingGateway`를 사용합니다.** 촬영 원본의 ownership을 확정한 직후 명시적 pending capability만으로 기기 OCR을 시작합니다. cloud 상태·10/60초 timer·이미지 준비·Firebase 호출을 만들지 않으므로 별도 오류 화면이나 recovery tap이 없습니다. 실제로 구성된 Firebase gateway는 capability가 `false`여서 cloud-first를 유지하고, configuration/service 실패는 회복 UI로 갑니다. Firebase 프로젝트, 모바일 앱 설정, 모델/쿼터/지역 접근을 아직 승인·구성·실행 검증하지 않았으므로 클라우드 OCR은 live-ready가 아닙니다.
-- Android 실기기와 iPhone 실기기 검증은 아직 없습니다. 따라서 카메라 프리뷰, 실제 캡처, 한국어 인식 정확도, 권한/설정 이동, 성능·메모리·발열, 라이프사이클, 10회 반복 촬영의 플랫폼 패리티는 **미입증**입니다.
-- 플래시는 코드상 지원을 탐지한 경우에만 자동/끔 UI를 보이지만, 양 플랫폼에서 실제 점등·복귀·패리티가 검증되지 않았습니다. **flash-ready라고 주장하지 않습니다.** Task 13에서는 제거하지 않았으며, 출시 전 숨김/제거 여부는 루트 release decision으로 남습니다.
+Flutter로 만든 카메라 OCR 과제입니다. 후면 카메라 프리뷰에서 정지 이미지를 촬영하고, Firebase AI Logic으로 먼저 인식한 뒤 결과를 읽기 전용으로 보여 줍니다. 클라우드가 늦거나 실패하면 앱에 번들된 한국어 ML Kit로 전환할 수 있습니다. 과제 원문의 필수 흐름, iOS/Android 공통 동작, 비동기 처리, 권한·입력·OCR 오류 대응, AI 사용 근거를 구현 범위로 삼았습니다. [원문 과제](https://github.com/git-artinus/artinus-fe-recurit/blob/cb7c0d5323e9c0f347253cf52c09594e18342ced/README.md)
 
 ## 빠른 시작
 
-필요 도구: Flutter **3.47.5** / Dart **3.13.4**, Xcode **26.1.1**, CocoaPods **1.16.2**, Java 17. 최소 플랫폼은 Android API 24, iOS 15.5입니다.
+필요 도구는 Flutter **3.47.5** / Dart **3.13.4**, Java 17이며, iOS는 Xcode **26.1.1** / CocoaPods **1.16.2**에서 검증했습니다. 최소 플랫폼은 Android API 24, iOS 15.5입니다.
 
 ```bash
 flutter pub get
-dart run pigeon --input pigeons/platform_apis.dart
 flutter run -d <android-or-ios-device>
 ```
 
-Firebase를 임의로 만들거나 설정하지 마세요. 승인된 기존 프로젝트가 제공된 뒤에만 `flutterfire configure`와 Firebase 초기화를 추가하고, 양 실기기에서 `RUN_LIVE_OCR=true` smoke test를 실행해야 합니다.
+기본 debug 실행은 별도 Firebase 설정 없이 전용 Spark 프로젝트의 App Check를 거쳐 `gemini-3.8-flash` 클라우드 OCR을 먼저 사용합니다. iPhone 실기기는 평가자의 Apple Development 서명 선택이 필요할 수 있습니다. Flutter 3.47의 혼합 SwiftPM/CocoaPods 초기화에서 깨끗한 iOS 체크아웃이 `Pods_Runner` 링크 오류를 한 번 보이면 아래 명령으로 native dependency를 먼저 생성한 뒤 다시 실행합니다.
 
-### Firebase 없는 평가 모드
+```bash
+flutter build ios --debug --no-codesign
+flutter run -d <ios-device>
+```
 
-기본 checkout은 Firebase를 초기화하지 않습니다. 따라서 평가자가 확인할 의도된 흐름은 **촬영 → pending capability 확인 → 기기 OCR → 결과**입니다. controller는 메시지, 예외, 구현 클래스가 아니라 합성 시점의 명시적 capability만 확인합니다. 이 capability는 요청 실패가 아니라 “호출할 cloud가 아직 구성되지 않음”을 뜻하므로 cloud-only 이미지 준비와 예산도 시작하지 않습니다. 승인된 Firebase gateway가 구성되면 cloud-first를 유지하며, 그 gateway에서 발생한 configuration/service 실패는 기존 recovery 정책을 따릅니다. Firebase 프로젝트가 승인·설정될 때까지 cloud 성공은 기대 결과가 아니며, cloud-ready라고 주장하지 않습니다.
+Firebase를 전혀 초기화하지 않고 번들된 기기 OCR만 확인하려면 다음 명시적 escape hatch를 사용합니다.
+
+```bash
+flutter run -d <android-or-ios-device> \
+  --dart-define=ARTINUS_CLOUD_EVIDENCE=false
+```
+
+## 과제 평가용 자격 증명 예외
+
+이 저장소에는 평가자의 빌드 절차를 줄이기 위해 다음 **과제 전용·폐기 가능한** 자료를 의도적으로 포함합니다.
+
+- Android 전용 평가 keystore와 `key.properties`: 기본 debug/profile/release APK가 Firebase에 등록된 동일 인증서로 서명됩니다.
+- iOS App Check debug token: Flutter debug mode에서만 활성화됩니다. profile/release는 이를 활성화하지 않고 fail closed합니다.
+
+이는 production 자격 증명 관리 방식이 아닙니다. Firebase 공식 지침상 App Check debug token은 비공개로 취급해야 하지만, 사용자가 전용 Spark/무과금 프로젝트의 과제 전달 편의를 위해 이 제한된 예외를 승인했습니다. 저장소에는 Gemini API key, service-account key, Firebase CLI token, Apple 계정·세션, `.p12`, provisioning profile, production signing asset가 없습니다. iOS와 Android release 산출물에서 debug token 값과 소스 식별자가 모두 없음을 최종 스캔했고, 평가 종료 후 token과 인증서 등록을 폐기합니다.
+
+Firebase AI monitoring은 사용량·지연·오류 확인을 위해 사용자의 명시적 선택으로 100% sampling 상태입니다. 입력과 출력이 sampling될 수 있으므로 민감한 사진을 테스트에 사용하지 마세요. 앱의 첫 화면도 이미지가 cloud로 전송되지만 기기에는 영구 저장하지 않는다는 조건을 안내합니다.
 
 ## 구현 구성
 
@@ -31,96 +42,112 @@ Firebase를 임의로 만들거나 설정하지 마세요. 승인된 기존 프�
 OcrScreen (immutable UI)
   └─ OcrFlowController / Riverpod Notifier
       ├─ CameraRepository → official camera 0.12.1
-      ├─ FirebaseAiOcrService → firebase_ai (cloud, when configured)
+      ├─ FirebaseAiOcrService → Firebase AI Logic + App Check
       └─ PigeonLocalOcrService → Kotlin/Swift → bundled Korean ML Kit
 ```
 
-주요 고정 의존성은 `camera 0.12.1`, `flutter_riverpod 3.4.3`, `firebase_core 4.6.0`, `firebase_ai 3.10.0`, `pigeon 29.0.4`입니다. 네이티브는 Android `com.google.mlkit:text-recognition-korean:16.0.1`, iOS `GoogleMLKit/TextRecognitionKorean: 8.0.0`을 잠급니다. Android app-resolved 구성은 Gradle lock, CocoaPods는 `Podfile.lock`, SwiftPM은 Runner project/workspace의 동일한 `Package.resolved` 두 파일로 재현합니다. 현재 `firebase_ai`는 SwiftPM을 직접 지원하지 않아 iOS는 CocoaPods와 FlutterFire Swift package가 섞인 구성입니다. Pigeon 산출물은 생성기로만 관리하며 수동 편집하지 않습니다.
+- **Flutter + 수동 Riverpod:** 하나의 상태/UI 흐름으로 플랫폼 패리티를 맞추고 `NotifierProvider` override로 외부 adapter를 격리합니다. 작은 과제에 state code generation 단계는 추가하지 않았습니다.
+- **Firebase AI Logic:** 공식 Flutter SDK, 구조화 JSON 응답, `gemini-3.8-flash`를 사용합니다. 이미지는 cloud로 전송되며 네트워크·서비스·쿼터 지연이 존재합니다. 활성 App Check 인스턴스를 AI client에 명시적으로 전달합니다.
+- **Pigeon + 공식 ML Kit:** raw method-channel payload 대신 생성된 typed Dart/Kotlin/Swift 경계를 사용합니다. Android `text-recognition-korean:16.0.1`, iOS `GoogleMLKit/TextRecognitionKorean: 8.0.0`을 앱에 번들해 오프라인 fallback을 제공합니다.
+- **공식 camera:** rear camera preview/capture와 lifecycle을 adapter 뒤에 둡니다. 실제 권한·방향·flash·성능은 플랫폼 실기기 검증이 필요합니다.
+- **제한된 이미지 준비:** isolate에서 방향, decode, 픽셀 수, 업로드 바이트를 제한합니다. 자동 deskew나 임의 보정은 과제 범위를 넘어 추가하지 않았습니다.
 
-### 기술 선택과 트레이드오프
+주요 고정 의존성은 `camera 0.12.1`, `flutter_riverpod 3.4.3`, `firebase_core 4.6.0`, `firebase_app_check 0.4.2`, `firebase_ai 3.10.0`, `pigeon 29.0.4`입니다. Gradle lock, `Podfile.lock`, Runner project/workspace의 `Package.resolved`를 추적합니다. Pigeon 산출물은 생성기로만 관리합니다.
 
-- **Flutter:** 하나의 상태/UI 구현으로 iOS·Android 흐름을 맞추기 위해 선택했습니다. 반면 카메라, ML Kit, 권한·lifecycle은 플랫폼별 동작과 도구 체인을 별도로 검증해야 합니다.
-- **수동 Riverpod:** `NotifierProvider` override로 controller와 외부 adapter를 격리하면서 작은 과제에 code generation 단계를 늘리지 않습니다. 상태·provider 연결 boilerplate는 직접 유지합니다.
-- **Firebase AI Logic:** 공식 모바일 SDK의 구조화 응답과 cloud-first 확장성을 사용합니다. 승인된 Firebase provisioning과 live model/quota 검증이 아직 없습니다. App Check 전이 의존성은 SDK와 함께 패키징되지만 활성화·token provider·enforcement는 평가 build에 구성하지 않았습니다. 이미지가 cloud로 전송되므로 개인정보·네트워크 지연·서비스 가용성 비용이 있습니다.
-- **Pigeon + 공식 ML Kit:** raw channel payload 대신 typed Dart/Kotlin/Swift 경계를 두고 오프라인 Korean OCR을 제공합니다. recognizer가 앱 binary 크기를 늘리고 두 native host와 contract를 유지해야 합니다. platform error code는 domain failure로만 매핑하며 UI에 노출하지 않습니다.
-- **공식 camera:** Flutter team package로 preview/capture/lifecycle 기반을 공유합니다. 실제 권한, 방향, flash, 임시 파일 수명과 성능은 양 실기기 증거가 필요합니다.
-- **bounded image preparation:** isolate에서 방향·decode·픽셀·업로드 크기를 제한해 UI/메모리 위험을 경계합니다. 축소에는 OCR 품질 비용이 있고 decode/encode 자체의 CPU 비용도 있으므로 자동 보정·deskew는 근거 없이 추가하지 않았습니다.
+## OCR 흐름과 복구 정책
 
-### OCR 및 시간 경계
+1. 촬영 파일 ownership을 확보한 뒤 cloud OCR을 먼저 시작합니다.
+2. 하나의 transaction은 최대 두 번의 cloud attempt만 허용하며, 명확한 transient failure만 한 번 재시도합니다. 화면에는 `1/2`, `2/2`를 표시합니다.
+3. 이미지 준비부터 재시도까지 누적 cloud budget은 **60초**입니다. **10초**가 지나면 `기기에서 인식` 또는 `조금 더 기다리기`를 선택할 수 있습니다.
+4. cloud 오류의 기술 원인·코드·raw message는 화면에 노출하지 않습니다. 자연스러운 재촬영 또는 기기 OCR 전환만 제공합니다.
+5. 기기 OCR은 cloud와 병렬 실행하지 않습니다. 전환·마감 뒤 늦게 도착한 결과는 transaction ID로 무시합니다.
+6. 읽을 문자가 없는 사진은 정상적인 `noReadableText` 결과이며 시스템 오류로 취급하지 않습니다.
 
-1. 성공한 촬영 뒤 구성된 Firebase에서는 cloud OCR을 먼저 시도합니다. pending evaluator gateway에서는 capture ownership 확정 직후 local OCR로 직행합니다.
-2. 하나의 transaction에는 최대 2회의 cloud attempt만 허용합니다. 명확한 transient 오류만 한 번 재시도합니다.
-3. 구성된 cloud 경로의 이미지 준비부터 재시도까지 공유하는 누적 예산은 **60초**입니다. **10초**에는 `기기에서 인식` 또는 계속 기다리기를 제공합니다. Firebase/ML Kit SDK의 이미 시작된 호출을 실제로 중단할 수 있다고 주장하지 않으며, 전환·마감 뒤의 늦은 결과를 transaction ID로 무시합니다.
-4. pending Firebase configuration은 cloud 작업 전에 자동으로, 구성된 cloud가 회복 불가 상태가 되면 사용자 선택으로 공식 Korean ML Kit Pigeon bridge에 순차 전환합니다. cloud와 local을 병렬 실행하지 않습니다.
+Firebase/ML Kit SDK의 이미 시작된 native 호출을 실제로 취소한다고 주장하지 않습니다. 상태 소유권과 늦은 결과 무시를 통해 UI 일관성을 지킵니다.
 
-이미지 준비는 isolate에서 수행하고, 과대 입력은 크기/픽셀/업로드 바이트 한도 안으로 정규화합니다. UI는 진행 상태와 중복 촬영 차단을 갖고, stale 결과가 새 촬영을 덮어쓰지 않도록 테스트합니다. 이는 구조·자동화 근거이며 실기기 성능 측정 결과는 아닙니다.
+## 개인정보와 임시 파일
 
-### 개인정보 및 임시 파일
+- 첫 실행에서 카메라 목적, cloud 전송, 영구 로컬 저장 없음과 재시도 조건을 안내합니다.
+- cloud 결과 뒤 기기 OCR로 전환할 수 있어 transaction 동안 원본이 유지될 수 있습니다. 정상 흐름에서는 재촬영 또는 controller dispose가 소유 파일을 정리합니다.
+- 비정상 종료 시 OS camera temp 파일은 OS 정리 전까지 남을 수 있습니다. 앱 시작 sweep은 앱 cache root의 `altinus_ocr_` derivative만 대상으로 하며 camera root 전체를 지우지 않습니다.
+- 갤러리 저장과 OCR 이력은 없습니다. 앱 로그에는 이미지, 인식 텍스트, raw 모델 응답, token, password, 로컬 경로를 기록하지 않습니다.
 
-- 첫 실행에서 카메라 사용 목적, cloud 전송, 영구 로컬 저장을 하지 않는다는 고지를 보여 줍니다.
-- 캡처 원본(canonical)은 cloud 결과 화면에서도 사용자가 `기기에서 인식`을 선택할 수 있도록 유지될 수 있습니다. 정상 흐름에서는 재촬영과 controller dispose가 해당 transaction의 소유 파일을 정리합니다. 비정상 종료 시 OS camera temp의 canonical은 앱이 다시 sweep하지 않으며 OS 정리 전까지 남을 수 있습니다. 시작 시 sweep은 앱 cache root의 `altinus_ocr_` 접두 derivative 파일만 대상으로 하고 camera root를 sweep하지 않습니다. 갤러리 저장과 OCR 이력은 없습니다.
-- 로그에는 이미지, 인식 텍스트, raw 모델 응답, 자격 증명, 로컬 경로를 기록하지 않습니다.
-- 이 정책은 코드와 deterministic test로 확인한 동작입니다. 외부 cloud 사업자의 보존 정책이나 실제 기기 파일 수명은 live/device 검증 전에는 주장하지 않습니다.
+## 검증 상태
 
-## 검증
-
-아래는 pre-release 범위 `732c68b..HEAD`(잠금 커밋 `1a11178` 포함)에서 2026-09-29 KST에 관찰한 release gate입니다. 결과가 없는 실기기 항목을 통과로 해석하면 안 됩니다.
+아래 로컬 결과는 2026-09-29 KST, 코드 증거 커밋 `7152334`의 깨끗한 ASCII 경로 clone에서 관찰했습니다. live cloud 성공은 `899bf4c`에서 관찰했으며, `7152334` 최종 재검증은 quota/capacity 오류로 차단됐습니다. 결과가 없는 실기기 항목을 통과로 해석하면 안 됩니다.
 
 | Gate | 관찰 결과 |
 | --- | --- |
-| `flutter pub get`, Pigeon 재생성, 생성물 diff | PASS — 생성 Dart/Kotlin/Swift diff 없음 |
-| handwritten Dart format (`lib/src/generated` 제외) | PASS — 43 files, 0 changed |
-| `flutter test` | PASS — 216 tests (independent-review follow-up 포함) |
-| `flutter analyze` (현재 한글 상위 경로) | BLOCKED/FAIL — 분석 전에 LSP `FormatException: Unterminated string`; 아래 ASCII 경로 검증 사용 |
-| `flutter build apk --debug` | PASS — Gradle 기본 모드 dependency lock validation 적용 상태 |
-| Android `:app:testDebugUnitTest :app:lintDebug` | PASS |
-| `flutter build ios --debug --no-codesign` (현재 한글 상위 경로) | BLOCKED/FAIL — SwiftPM이 percent-encoded Firebase package 경로의 `pubspec.yaml`을 찾지 못함; 아래 ASCII 경로 검증 사용 |
-| Firebase live cloud / native smoke / 실기기 matrix | BLOCKED — 승인된 Firebase 프로젝트와 Android/iPhone 하드웨어 없음 |
+| `flutter pub get`, Pigeon 재생성, tracked diff | PASS — 생성물 byte diff와 tracked 변경 없음 |
+| `flutter analyze` | PASS — 0 issues |
+| `flutter test` | PASS — 228 tests |
+| fake full-flow integration | PASS — 2 tests |
+| Android debug/release build | PASS — release universal APK 86.1 MB |
+| Android app unit test + lint | PASS — 422 tasks, build successful |
+| Android release signing | PASS — Firebase에 유일하게 등록된 과제 인증서 SHA-256과 일치 |
+| iOS debug/release no-codesign build | PASS — release `Runner.app` 69.4 MB |
+| iOS release credential containment | PASS — evaluator debug token 값/식별자 없음 |
+| Android release credential containment | PASS — evaluator debug token 값/식별자 없음 |
+| iOS simulator live cloud smoke | PARTIAL — `899bf4c` PASS; `7152334` 재검증은 2회 service 실패 후 진단 요청에서 quota/capacity 오류 확인 |
+| Firebase AI monitoring (developer-observed remote evidence) | OBSERVED — iOS 요청/성공·실패/지연/token 집계 생성 확인; 콘솔 권한 없이는 재현 불가 |
+| Android physical device | BLOCKED — 최종 검증 시 연결된 기기 없음 |
+| iPhone physical device | BLOCKED — 최종 검증 시 연결된 기기 없음 |
 
-원본 작업 경로의 한글 상위 디렉터리는 Flutter analyzer LSP framing과 Xcode SwiftPM percent-encoding을 깨뜨립니다. 소스를 변경하거나 Xcode를 우회 수정하지 않고, **ASCII 전용 임시 clone**에서 같은 Flutter SDK로 분석·테스트·Android/iOS build를 실행합니다.
+원본 개발 경로의 한글 상위 디렉터리에서는 Flutter 3.47.5 analyzer LSP framing과 Xcode SwiftPM percent-encoding 문제가 재현됩니다. 소스 우회 변경 대신 ASCII-only clone을 최종 기준으로 사용했습니다. 깨끗한 clone에서 iOS integration test를 바로 실행하면 혼합 package 초기화가 `Pods_Runner` 링크 오류를 낼 수 있었고, 위 빠른 시작의 iOS debug no-codesign build를 먼저 실행하자 동일 clone에서 live smoke가 통과했습니다.
 
-기존 release 증거에 더해 pre-release 문서 커밋 `9101ac1701e36bb3101efb95ffb32a2e99c1ab35`을 ASCII 임시 clone(`ARTINUS_CLONE_DIR`)에서 다시 검증했습니다. Pigeon 재생성, analyze, 213-test suite, 2 fake integration tests, 기본 모드 Gradle dependency lock validation 상태의 Android debug build와 app test/lint, iOS debug no-codesign build가 PASS했고 build/resolve 뒤 tracked tree도 clean이었습니다. 생성 Pigeon Dart/Kotlin/Swift는 29.0.4 출력 그대로이며 재생성 byte diff가 없습니다. 생성기가 남기는 trailing spaces는 손으로 고치지 않았고, whitespace 검사는 handwritten source 범위에만 적용합니다. Gradle `LockMode.STRICT`는 설정하지 않았습니다. 기본 모드는 기록된 lock state를 resolution 제약으로 검증하며, STRICT는 여기에 “locked configuration에 state가 없으면 실패”를 추가합니다. 현재 `:app:resolvableConfigurations`의 57개 이름과 `gradle.lockfile`의 configuration 이름 57개는 완전히 일치합니다. 잠금은 지원되는 `:app:dependencies --write-locks`로 생성했습니다. Xcode가 생성한 Runner project/workspace `Package.resolved`는 서로 같은 해시이고 `xcodebuild -resolvePackageDependencies` 뒤에도 유지됩니다. CocoaPods `Podfile.lock`도 유지합니다.
-
-직행-path 후속 문서 커밋 `b3642340b1a154d6ec2840024b51d94f17650219`의 새 ASCII clone에서도 Pigeon diff 0, analyze 0 issues, Flutter 216 tests, fake integration 2 tests, Android debug build가 PASS했습니다. Gradle lock 재생성 전후 SHA-256은 모두 `dc93b92fae0976f297e6978f1c8392a326bd5b21eef205817c6274d37e4115ec`였고 57/57 configuration 집합의 양방향 차집합은 0, tracked diff도 0이었습니다.
-
-개발/재현 명령은 다음과 같습니다.
+재현 명령:
 
 ```bash
-ARTINUS_CLONE_ROOT="$(mktemp -d /tmp/artinus-ocr.XXXXXX)"
-ARTINUS_CLONE_DIR="$ARTINUS_CLONE_ROOT/artinus-ocr"
-git clone . "$ARTINUS_CLONE_DIR"
-cd "$ARTINUS_CLONE_DIR"
 flutter pub get
 dart run pigeon --input pigeons/platform_apis.dart
 git diff --exit-code
 flutter analyze
 flutter test
+flutter test -d flutter-tester integration_test/fake_flow_test.dart
 flutter build apk --debug
+./android/gradlew -p android :app:testDebugUnitTest :app:lintDebug
+flutter build apk --release
 flutter build ios --debug --no-codesign
+flutter build ios --release --no-codesign
+./scripts/test_verify_release_containment.sh
+./scripts/verify_release_containment.sh
 ```
 
-`flutter build apk`는 ABI split이 아닌 universal APK입니다. debug와 release 크기를 서로 비교하거나 release 수치로 debug 크기를 추정하지 않습니다.
+live cloud smoke는 개인 정보가 없는 생성 fixture만 사용합니다.
+
+```bash
+flutter test integration_test/live_cloud_smoke_test.dart -d <device-id> \
+  --dart-define=RUN_LIVE_OCR=true \
+  --dart-define=OCR_DEVICE=<public-device-model> \
+  --dart-define=OCR_GIT_COMMIT=$(git rev-parse HEAD)
+```
+
+상세 원격 구성과 실행 증거는 `.superpowers/sdd/firebase-cloud-evidence-report.md`에 기록합니다.
 
 ## AI 사용과 검증 흔적
 
-상세한 append-only 기록은 [docs/AI_PROMPT_LOG.md](docs/AI_PROMPT_LOG.md)에 있습니다. 요약:
+상세 append-only 기록은 [docs/AI_PROMPT_LOG.md](docs/AI_PROMPT_LOG.md)에 있습니다.
 
-- **Used as-is:** 없음. AI 결과는 모두 코드·테스트·리뷰로 확인하거나 수정한 뒤에만 채택했습니다.
-- **Adopted:** 검증 가능한 Riverpod transaction state machine, typed Pigeon Korean OCR/settings 경계, 생성 가능한 fixed-image fixture 접근을 RED→GREEN 테스트와 리뷰를 거쳐 채택했습니다.
-- **Modified / verified — fixed clock:** review가 full-flow E2E의 `DateTime.now` 의존을 지적했고, 고정 UTC clock override를 주입했습니다. `fake_flow_test.dart` 1/1 통과로 wall-clock 의존 제거를 확인했습니다.
-- **Modified / verified — fixture disposal:** root review가 생성 fixture의 `TextPainter` dispose 누락을 지적했고, `finally`에서 dispose하도록 바꿨습니다. 전체 200-test suite 재실행으로 확인했습니다.
-- **Rejected:** 예외 메시지로 HTTP 상태를 추론하거나 raw `HttpClient`/불필요한 Dio를 넣는 제안, 모든 CocoaPod의 static framework 전환(중복 심볼), Firebase 프로젝트·billing·App Check의 임의 변경을 거절했습니다.
+- **Used as-is:** 없음. 제안은 코드·테스트·공식 문서 또는 실제 build/run으로 확인한 뒤 채택했습니다.
+- **Adopted:** Riverpod transaction state machine, typed Pigeon boundary, cloud-first + sequential local fallback, 생성 fixture, App Check가 적용된 Firebase AI client.
+- **Modified:** 180초 watchdog 제안을 사용자 결정에 따라 누적 60초로 줄였고, 10초 시점에 계속 기다리기/기기 인식 선택을 제공했습니다. 단일 거대 구현 agent 대신 설계·bounded executor·review 역할을 분리했습니다.
+- **Rejected:** raw HTTP/Dio 중복 구현, 예외 문자열 기반 분기, 모든 CocoaPod 강제 static 전환, client Gemini key, billing 연결, 기술 오류 코드의 사용자 노출을 채택하지 않았습니다.
 
-## 남은 release gates
+## 남은 실기기 게이트
 
-1. 사용자가 승인한 정확한 Firebase project ID로 Android/iOS 설정을 만들고, `gemini-3.8-flash`의 live model/quota/location을 양 실기기에서 기록합니다.
-2. Android와 iPhone 각각에서 permission/settings, preview/capture, cloud/local, Korean glyph/recognition, bad input, lifecycle, orientation, rapid taps, 10-cycle, 10s/60s, profile frame/memory/CPU/heat을 commit·기기·OS·build mode와 함께 기록합니다.
-3. 위 결과가 나오기 전에는 cloud-ready, physical parity, 또는 flash-ready라고 표시하지 않습니다.
-4. Android/iOS bundle identifier는 아직 `com.example...`이고 Android release도 debug signing을 사용합니다. 배포 식별자·서명·provisioning은 release 설정 전환이 필요합니다.
+Android와 iPhone 각각에서 다음을 확인해야 physical parity나 flash-ready를 주장할 수 있습니다.
+
+1. permission/settings, 실제 preview/capture, 한국어·라틴 OCR 및 no-text 입력
+2. cloud/local 전환, offline local, 10초/60초, background/resume, rotation, rapid taps
+3. flash 노출·점등·복귀, 10회 반복 촬영, frame time, memory/CPU/발열
+4. Android 외부 설치 Play Integrity와 iPhone debug provider의 실제 token 승인
+
+실기기 증거가 없으므로 이 저장소는 자동화·빌드·iOS 시뮬레이터 cloud smoke까지만 검증된 상태입니다. push, 앱스토어 업로드, 과제 제출은 수행하지 않았습니다.
 
 ## 근거
 
 - [과제 원문](https://github.com/git-artinus/artinus-fe-recurit/blob/cb7c0d5323e9c0f347253cf52c09594e18342ced/README.md)
 - [Flutter integration test](https://docs.flutter.dev/testing/integration-tests), [camera package](https://pub.dev/packages/camera), [Pigeon](https://pub.dev/packages/pigeon)
-- [Firebase AI Logic for Flutter](https://firebase.google.com/docs/ai-logic/get-started?api=dev&platform=flutter), [ML Kit Android](https://developers.google.com/ml-kit/vision/text-recognition/v2/android), [ML Kit iOS](https://developers.google.com/ml-kit/vision/text-recognition/v2/ios)
-- [Gradle dependency locking and lock modes](https://docs.gradle.org/current/userguide/dependency_locking.html)
+- [Firebase AI Logic for Flutter](https://firebase.google.com/docs/ai-logic/get-started?api=dev&platform=flutter), [모델](https://firebase.google.com/docs/ai-logic/models), [가격](https://firebase.google.com/docs/ai-logic/pricing), [모니터링](https://firebase.google.com/docs/ai-logic/monitoring), [할당량](https://firebase.google.com/docs/ai-logic/quotas), [오류 코드](https://firebase.google.com/docs/ai-logic/error-codes)
+- [Firebase App Check debug provider](https://firebase.google.com/docs/app-check/flutter/debug-provider), [Play Integrity outside Google Play](https://firebase.google.com/docs/app-check/android/play-integrity-provider)
+- [ML Kit Android](https://developers.google.com/ml-kit/vision/text-recognition/v2/android), [ML Kit iOS](https://developers.google.com/ml-kit/vision/text-recognition/v2/ios)

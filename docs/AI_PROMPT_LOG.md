@@ -556,3 +556,72 @@ flowchart LR
 - Rejected scope: no Gemini Developer API key, service-account credential, Firebase CLI token, Apple account/session, `.p12`, provisioning profile, production signing asset, billing attachment, or former-employer asset may enter the repository. iOS release must not contain or activate the debug token.
 - Risk acceptance and recovery: Firebase's official guidance says App Check debug tokens should not be committed publicly. This exception knowingly prioritizes evaluator reproducibility for a dedicated Spark/no-billing project. The token and certificate identity are monitored and revoked after evaluation; deleting a later Git commit is not treated as secret removal.
 - Evidence state: this entry records the approved design decision only. Credential creation/registration, code guards, clean-clone cloud execution, release-token absence, physical-device behavior, and revocation remain unverified until implemented and tested.
+
+### 2026-09-29 — user + AI / evaluator cloud bundle and monitored live smoke
+
+- Request/prompt: Make the approved option-B checkout cloud-first without a
+  separate evaluator secret handoff, keep cloud OCR, use Android Play Integrity
+  for outside-Play evaluation, use an iOS debug provider only where the observed
+  Personal Team permits it, keep AI monitoring enabled for usage evidence, and
+  never expose technical error details to the user.
+- Remote result: The dedicated `artinus-ocr-bongjae-202609` project remained on
+  Spark. Android Play Integrity was registered with the sole assignment
+  certificate and outside-Play-compatible policy. One iOS evaluator debug token
+  was registered without printing it. Firebase AI Logic uses Gemini Developer
+  API with default App Check enforcement; Agent Platform, template-only, and
+  authenticated-user modes stayed disabled. AI monitoring was enabled at 100%
+  sampling by the user's explicit choice. No billing, client Gemini key,
+  service-account credential, database, Authentication, Storage, Analytics,
+  app-store resource, push, or submission action was added.
+- Credential disposition: The repository tracks only the approved dedicated
+  Android signing identity/properties and iOS debug token. iOS profile/release
+  fail closed. Expanded Android and iOS release outputs contained neither the
+  token value nor its source identifier. This is documented as a revocable
+  take-home convenience exception, not production credential practice.
+- Debugging evidence: The first iOS simulator run proved App Check token
+  acquisition but every AI request failed. Minimal text/schema/image probes
+  showed the failure was common to all request shapes. Inspection of pinned
+  `firebase_ai 3.10.0` showed the header is attached only when
+  `FirebaseAI.googleAI(appCheck: ...)` receives the active instance. A RED
+  regression first required that dependency to cross the gateway boundary; the
+  minimal implementation then passed focused and full tests.
+- Live result: A fresh ASCII clone at `899bf4c` passed the canonical production
+  bootstrap live smoke on an iOS 18.5 simulator with `gemini-3.8-flash` and a
+  generated non-sensitive fixture. Firebase console aggregate monitoring then
+  displayed request, success/failure, latency, and token metrics. Diagnostic
+  failures are included in those aggregates, so they are not presented as a
+  product success-rate claim; trace inputs/outputs were not opened or copied.
+- Verification/evidence: Pigeon regeneration remained clean; Flutter analysis
+  reported 0 issues; 227 Flutter tests and 2 fake full-flow tests passed;
+  Android debug/release, app tests/lint, and iOS debug/release no-codesign builds
+  passed; the Android release certificate matched the sole Firebase entry; and
+  release-token containment passed. A clean iOS clone needed the documented
+  debug no-codesign build before integration test to initialize mixed
+  SwiftPM/CocoaPods state.
+- Limits: No physical Android or iPhone was connected. Camera, local Korean OCR,
+  physical attestation, permission/lifecycle/orientation/flash, performance,
+  heat, 10-cycle, and platform-parity evidence remain blocked. The simulator
+  smoke is supplemental only.
+
+### 2026-09-29 — final code evidence / reproducible containment and remote quota block
+
+- Review correction: The initial App Check regression exercised only an
+  injected generation seam, and the release-token claim had no evaluator-run
+  command. The gateway now constructs its production `FirebaseAI` client
+  through a tested helper that receives the active `FirebaseAppCheck` instance.
+  A sanitized executable verifier and leak-fixture test now cover real release
+  outputs without printing the token.
+- Clean-clone result: Code evidence commit `7152334` passed byte-stable Pigeon
+  regeneration, Flutter analysis with 0 issues, 228 Flutter tests, 2 fake
+  integration tests, Android debug/release, Android app tests/lint, and iOS
+  debug/release no-codesign builds. The Android release certificate matched the
+  sole Firebase SHA-256; both release outputs passed token containment.
+- Live revalidation: The earlier canonical live success remains tied to
+  `899bf4c`. At `7152334`, two canonical requests failed at the sanitized
+  service boundary. A temporary disposable-clone diagnostic then reached the
+  SDK quota-exceeded branch. Firebase's official quota/error guidance says a
+  429 can represent exceeded project quota or exhausted model capacity. No
+  billing, quota-increase, or production-source diagnostic change was made.
+- Evidence policy: Do not relabel the earlier success as a `7152334` pass. Keep
+  remote quota/capacity and both physical-device matrices explicitly blocked;
+  the product-level two-attempt path still offers bundled on-device OCR.

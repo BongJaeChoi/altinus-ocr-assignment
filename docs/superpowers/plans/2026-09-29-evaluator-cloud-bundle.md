@@ -437,8 +437,8 @@ git diff --exit-code
 flutter analyze
 flutter test
 flutter test -d flutter-tester integration_test/fake_flow_test.dart
-./android/gradlew -p android :app:testDebugUnitTest :app:lintDebug
 flutter build apk --debug
+./android/gradlew -p android :app:testDebugUnitTest :app:lintDebug
 flutter build apk --release
 flutter build ios --debug --no-codesign
 flutter build ios --release --no-codesign
@@ -516,9 +516,11 @@ Record overall, HR, and hiring-manager scores out of 100 plus the top three fixe
 - [ ] **Step 8: Commit verified handoff evidence**
 
 ```bash
-git add README.md docs integration_test
+git add AGENTS.md README.md docs integration_test scripts
 git add -u .superpowers/sdd
 git add -f .superpowers/sdd/firebase-cloud-evidence-report.md
+ALLOW_DOCS_ONLY=1 \
+DOCS_ONLY_REASON='Record verified evaluator cloud and release evidence' \
 git commit -m "docs(evidence): verify evaluator cloud bundle" \
   -m "What:
 Document the one-command cloud build, assignment-only credential exception, App Check and Firebase AI Logic state, clean-clone checks, live device results, release containment, and remaining gates.

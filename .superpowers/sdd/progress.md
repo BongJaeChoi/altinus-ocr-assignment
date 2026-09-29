@@ -45,11 +45,13 @@
 | --- | --- | --- | --- |
 | 1. Cloud-first bootstrap and Apple debug guard | complete | `d0e4dcf..eb917e8` | Approved after profile-mode fail-closed fix; release binary token scan remains Task 4 |
 | 2. Bundled Android evaluation identity | complete | `08bb4ff..6b4a7c1` | Approved; root independently verified byte identity, RSA-4096/sole Firebase SHA-256, fresh ASCII clone builds/tests/lint, and default APK signatures |
-| 3. App Check and Firebase AI Logic remote setup | pending | — | Requires action-time confirmation before each console save |
-| 4. Live, clean-clone, release-containment, and handoff evidence | pending | — | — |
+| 3. App Check and Firebase AI Logic remote setup | complete | remote state; no source commit | Approved; Critical 0, Important 0, two wording-only Minor findings corrected in the ignored report |
+| 4. Live, clean-clone, release-containment, and handoff evidence | in progress; remote quota/capacity and physical devices blocked | `7152334`, docs pending | Final ASCII local/build/security gates pass; earlier `899bf4c` iOS simulator cloud smoke passed, while final `7152334` revalidation reached quota/capacity failure; physical Android/iPhone matrix remains |
 
 ## Minor findings
 
 - Task 11: the generated mixed fixture/nonblank native smoke proves bridge execution, not Korean glyph rendering or Korean-character recognition. Task 12 must validate actual Korean characters independently on Android and iPhone hardware.
 - Evaluator Cloud Task 1: the ignored first review package duplicated the tracked iOS debug token before the controller moved it out of the worktree; future review packages containing credential-source diffs must be redacted before dispatch. The implementer report's original “outside release” sentence is stale but explicitly superseded by its appended debug-only fix evidence.
 - Evaluator Cloud Task 2: `firebase_ai` still emits its existing Kotlin Gradle Plugin migration warning, and Gradle reports existing future-Gradle-10 deprecations. Current pinned builds pass; dependency migration is not expanded into this assignment task.
+- Evaluator Cloud Task 4: a fresh clone can hit `Pods_Runner` not found when the live integration test is the first iOS build under Flutter 3.47's mixed SwiftPM/CocoaPods resolution. Running the documented iOS debug no-codesign build first initializes dependencies; the same clone then passes. No physical device was available, so simulator evidence is supplemental only.
+- Evaluator Cloud final re-review: Critical 0, Important 0, Minor 2; Overall 86/100, HR 88/100, Hiring Manager 84/100. One Minor is the theoretical future risk that the gateway could bypass its tested production client factory; the other is resolved by force-adding the ignored evidence report in the final staged manifest.

@@ -25,7 +25,11 @@ If sources conflict, follow the priority declared in `docs/CONTEXT.md` and recor
 - Treat iOS and Android as separate verification surfaces. Passing Android does not imply iOS passes.
 - Keep UI-thread work bounded. Camera capture, image decoding, preprocessing, and OCR require explicit performance reasoning.
 - Permission denial, unavailable camera, OCR failure, malformed/rotated/large images, lifecycle transitions, and retry behavior are first-class states.
-- Never commit secrets, signing credentials, personal tokens, or private application records.
+- Never commit secrets, signing credentials, personal tokens, or private application records except the exact user-approved evaluator bundle below. Do not broaden this exception:
+  - `android/key.properties`
+  - `android/evaluator-signing/artinus-ocr-upload.jks`
+  - `lib/bootstrap/evaluator_credentials.dart`
+- The three-file exception is dedicated, revocable take-home material for the Spark/no-billing assignment project, not production practice. Never add a Gemini API key, service-account/Firebase CLI token, Apple account/session, private Apple key, `.p12`, provisioning profile, former-employer asset, or unrelated signing identity.
 
 ## Documentation anti-work rule
 

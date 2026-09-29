@@ -74,20 +74,60 @@ Empty text is a valid OCR outcome and must not be mislabeled as an engine crash.
 
 - Flutter `3.47.5` stable and Dart `3.13.4` are the committed implementation versions.
 - Xcode `26.1.1`, CocoaPods `1.16.2`, Java 17, and Android SDKs are available.
-- No Android device was connected during bootstrap analysis.
-- Registered iPhones were unavailable during bootstrap analysis.
+- Final evaluator-cloud verification found no connected physical Android or
+  iPhone. An iOS 18.5 iPhone 16 Pro simulator was available only as
+  supplemental cloud evidence.
 - Flutter is the committed implementation stack.
 
 Re-check environment/device facts immediately before implementation and E2E; they are time-sensitive.
 
 ## Committed implementation decisions
 
-- Use `firebase_ai` cloud-first OCR, with official Korean ML Kit through a Pigeon fallback.
-- In the unconfigured evaluator build only, the stable pending capability routes an owned capture directly to local OCR before cloud state, preparation, timers, or dispatch; configured Firebase configuration/service failures keep the recovery UI.
+- Default evaluator debug builds initialize the dedicated
+  `artinus-ocr-bongjae-202609` Spark project and use `firebase_ai` cloud-first
+  OCR with App Check. The AI client must receive the active App Check instance.
+- Use official Korean ML Kit through a typed Pigeon fallback. Cloud and local
+  recognition are sequential, never speculative parallel work.
+- `ARTINUS_CLOUD_EVIDENCE=false` is the explicit local-only escape hatch. It
+  routes an owned capture directly to local OCR before Firebase initialization,
+  cloud image preparation, timers, or dispatch.
 - Use manual Riverpod `NotifierProvider`; do not use code generation.
 - Give the user a 10-second choice, with a cumulative 60-second cloud budget and at most two cloud attempts.
-- Iterate on an Android device; borrow an iPhone for final real-device proof.
+- The repository intentionally tracks a dedicated revocable Android assignment
+  keystore/properties and one iOS App Check debug token for evaluator setup
+  convenience. This is a user-approved take-home exception, not production
+  credential practice. iOS profile/release fail closed and release artifacts
+  must not contain the token.
+- Android uses Play Integrity configured for compatible outside-Play installs.
+  iOS uses the registered debug provider only in Flutter debug mode; the
+  observed free Personal Team did not provide the production DeviceCheck key
+  path required by Firebase.
+- Firebase AI monitoring is enabled at 100% sampling by explicit user choice;
+  only non-sensitive generated fixtures may be used for recorded live evidence.
+- Use a physical Android and borrowed iPhone for final real-device proof.
 - Require clean-clone, fixed-input, cloud/local, Pigeon, frame-time, memory, and heat evidence.
+
+## Latest observed evidence
+
+- Code evidence commit `7152334`, 2026-09-29 KST, fresh ASCII-only clone:
+  Pigeon regeneration clean, `flutter analyze` 0 issues, 228 Flutter tests,
+  2 fake full-flow tests,
+  Android debug/release builds, app unit tests/lint, and iOS debug/release
+  no-codesign builds passed.
+- At `899bf4c`, an iOS 18.5 simulator live smoke reached
+  `gemini-3.8-flash` through the production bootstrap and returned a nonblank
+  result for a generated fixture. Final `7152334` revalidation made two
+  canonical attempts that failed at the sanitized service boundary; a
+  diagnostic request then reached the SDK quota-exceeded branch. Firebase
+  documents that this can represent project quota or model capacity. This is
+  supplemental and does not prove camera or physical-iPhone behavior.
+- Firebase console aggregate monitoring appeared for the iOS app. Do not open
+  or copy trace inputs/outputs into evidence.
+- The exact evaluator token and its source identifier were absent from expanded
+  Android release APK and iOS release app outputs. Android release signing
+  matched the sole registered assignment certificate.
+- Physical Android/iPhone camera, App Check, local OCR, lifecycle, performance,
+  heat, flash, and platform parity remain blocked until hardware is connected.
 
 ## Done evidence ledger
 
