@@ -20,8 +20,6 @@ final class OcrScreen extends ConsumerStatefulWidget {
 
 final class _OcrScreenState extends ConsumerState<OcrScreen>
     with WidgetsBindingObserver {
-  bool _inactiveForwarded = false;
-
   @override
   void initState() {
     super.initState();
@@ -36,7 +34,7 @@ final class _OcrScreenState extends ConsumerState<OcrScreen>
         final lifecycleState = WidgetsBinding.instance.lifecycleState;
         if (lifecycleState != null &&
             lifecycleState != AppLifecycleState.resumed) {
-          _forwardInactiveOnce();
+          _forwardLifecycleState(lifecycleState);
           return;
         }
         ref.read(ocrFlowControllerProvider.notifier).start();
@@ -47,33 +45,24 @@ final class _OcrScreenState extends ConsumerState<OcrScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _forwardLifecycleState(state);
+  }
+
+  void _forwardLifecycleState(AppLifecycleState state) {
     if (!mounted) {
       return;
     }
-    if (state == AppLifecycleState.inactive &&
-        ref.read(ocrFlowControllerProvider) is CameraInitializing) {
-      // System permission sheets temporarily make the host app inactive.
-      // Keep the in-flight permission result alive; a real background
-      // transition will still deliver hidden/paused and release the camera.
-      return;
+    final controller = ref.read(ocrFlowControllerProvider.notifier);
+    switch (state) {
+      case AppLifecycleState.resumed:
+        unawaited(controller.onResumed());
+      case AppLifecycleState.inactive:
+        unawaited(controller.onInactive());
+      case AppLifecycleState.hidden ||
+          AppLifecycleState.paused ||
+          AppLifecycleState.detached:
+        unawaited(controller.onBackgrounded());
     }
-    if (state == AppLifecycleState.resumed) {
-      if (!_inactiveForwarded) {
-        return;
-      }
-      _inactiveForwarded = false;
-      unawaited(ref.read(ocrFlowControllerProvider.notifier).onResumed());
-    } else {
-      _forwardInactiveOnce();
-    }
-  }
-
-  void _forwardInactiveOnce() {
-    if (!mounted || _inactiveForwarded) {
-      return;
-    }
-    _inactiveForwarded = true;
-    unawaited(ref.read(ocrFlowControllerProvider.notifier).onInactive());
   }
 
   @override

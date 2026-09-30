@@ -109,6 +109,76 @@ void main() {
     },
   );
 
+  testWidgets('inactive granted initialization is parked before resume', (
+    tester,
+  ) async {
+    final harness = _LifecycleHarness(holdInitialize: true);
+    addTearDown(() {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    });
+    await tester.pumpWidget(harness.widget);
+    await tester.pump();
+    await tester.pump();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(harness.camera.disposeCount, 0);
+
+    harness.camera.completeInitialize(0);
+    await tester.pump();
+    await tester.pump();
+    expect(harness.camera.disposeCount, 1);
+
+    harness.camera.holdInitialize = false;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+
+    expect(harness.camera.initializeCount, 2);
+    expect(harness.camera.maxConcurrentInitializationCount, 1);
+    expect(find.byKey(const ValueKey('capture')), findsOneWidget);
+  });
+
+  for (final backgroundState in [
+    AppLifecycleState.hidden,
+    AppLifecycleState.paused,
+  ]) {
+    testWidgets(
+      '${backgroundState.name} cancels deferred initialization before resume',
+      (tester) async {
+        final harness = _LifecycleHarness(holdInitialize: true);
+        addTearDown(() {
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+        });
+        await tester.pumpWidget(harness.widget);
+        await tester.pump();
+        await tester.pump();
+
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(backgroundState);
+        await tester.pump();
+
+        expect(harness.camera.disposeCount, 1);
+        expect(harness.camera.wasInitializeCancelled(0), isTrue);
+
+        harness.camera.holdInitialize = false;
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(harness.camera.initializeCount, 2);
+        expect(harness.camera.maxConcurrentInitializationCount, 1);
+        expect(find.byKey(const ValueKey('capture')), findsOneWidget);
+      },
+    );
+  }
+
   for (final initialState in [
     AppLifecycleState.hidden,
     AppLifecycleState.paused,
