@@ -1006,6 +1006,31 @@ void main() {
   });
 
   group('cleanup and lifecycle', () {
+    test(
+      'resume before deferred initialization settles reuses that request',
+      () {
+        fakeAsync((async) {
+          final harness = _Harness(async);
+          harness.camera.holdInitialize = true;
+          unawaited(harness.controller.start());
+          async.flushMicrotasks();
+
+          unawaited(harness.controller.onInactive());
+          unawaited(harness.controller.onResumed());
+          async.flushMicrotasks();
+
+          expect(harness.camera.disposeCount, 0);
+          expect(harness.camera.initializeCount, 1);
+          harness.camera.completeInitialize(0);
+          async.flushMicrotasks();
+
+          expect(harness.state, isA<PreviewReady>());
+          expect(harness.camera.maxConcurrentInitializationCount, 1);
+          harness.dispose(async);
+        });
+      },
+    );
+
     test('inactive settles a newer never-completing capture marker', () {
       fakeAsync((async) {
         final harness = _Harness(async)..start(async);

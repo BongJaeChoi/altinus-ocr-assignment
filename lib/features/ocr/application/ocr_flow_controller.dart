@@ -29,6 +29,8 @@ final ocrFlowControllerProvider =
       isAutoDispose: true,
     );
 
+enum _CameraLifecyclePhase { active, inactive, backgrounded }
+
 final class OcrFlowController extends Notifier<OcrFlowState> {
   static const _slowThreshold = Duration(seconds: 10);
   static const _cloudDeadline = Duration(seconds: 60);
@@ -58,6 +60,10 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
 
   int _cameraOperationId = 0;
   Future<void>? _cameraTeardownFuture;
+  _CameraLifecyclePhase _cameraLifecyclePhase = _CameraLifecyclePhase.active;
+  int _cameraLifecycleGeneration = 0;
+  int? _initializingCameraOperationId;
+  bool _initializationDeferredByInactive = false;
   bool _captureInFlight = false;
   bool _flashInFlight = false;
   bool _cameraReady = false;
@@ -377,13 +383,30 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
   }
 
   Future<void> onInactive() async {
+    if (_cameraLifecyclePhase != _CameraLifecyclePhase.active) {
+      return;
+    }
+    _cameraLifecyclePhase = _CameraLifecyclePhase.inactive;
+    _cameraLifecycleGeneration += 1;
+    if (state is CameraInitializing) {
+      _needsPreviewOnResume = true;
+      if (_initializingCameraOperationId != null &&
+          _cameraTeardownFuture == null) {
+        _initializationDeferredByInactive = true;
+      }
+      return;
+    }
+    await _suspendCamera();
+  }
+
+  Future<void> _suspendCamera() async {
     final needsBoot = state is Booting;
     final needsPreview = switch (state) {
       PreviewReady() || CameraInitializing() || Capturing() => true,
       _ => false,
     };
-    _needsBootOnResume = needsBoot;
-    _needsPreviewOnResume = needsPreview;
+    _needsBootOnResume = _needsBootOnResume || needsBoot;
+    _needsPreviewOnResume = _needsPreviewOnResume || needsPreview;
     final operationId = ++_cameraOperationId;
     _invalidateEntryTokens();
     final pendingCaptureOwnerId = _pendingCaptureOwnerId;
@@ -412,6 +435,20 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
   }
 
   Future<void> onResumed() async {
+    if (_cameraLifecyclePhase == _CameraLifecyclePhase.active) {
+      return;
+    }
+    _cameraLifecyclePhase = _CameraLifecyclePhase.active;
+    _cameraLifecycleGeneration += 1;
+    if (_initializationDeferredByInactive &&
+        state is CameraInitializing &&
+        _initializingCameraOperationId != null &&
+        _cameraTeardownFuture == null) {
+      _initializationDeferredByInactive = false;
+      _needsPreviewOnResume = false;
+      return;
+    }
+    _initializationDeferredByInactive = false;
     if (_needsBootOnResume && state is Booting) {
       _needsBootOnResume = false;
       await start();
@@ -439,6 +476,7 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
 
   Future<void> _initializeCamera() async {
     final operationId = ++_cameraOperationId;
+    _initializingCameraOperationId = operationId;
     state = const CameraInitializing();
     _cameraNeedsDispose = true;
     try {
@@ -471,6 +509,10 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
       if (_ownsCameraOperation(operationId)) {
         _cameraReady = false;
         state = RecoverableError(failure: _domainFailure(error));
+      }
+    } finally {
+      if (_initializingCameraOperationId == operationId) {
+        _initializingCameraOperationId = null;
       }
     }
   }
