@@ -399,6 +399,22 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
     await _suspendCamera();
   }
 
+  Future<void> onBackgrounded() async {
+    if (_cameraLifecyclePhase == _CameraLifecyclePhase.backgrounded) {
+      return;
+    }
+    final inactiveAlreadyStartedTeardown =
+        _cameraLifecyclePhase == _CameraLifecyclePhase.inactive &&
+        !_initializationDeferredByInactive;
+    _cameraLifecyclePhase = _CameraLifecyclePhase.backgrounded;
+    _cameraLifecycleGeneration += 1;
+    if (inactiveAlreadyStartedTeardown) {
+      return;
+    }
+    _initializationDeferredByInactive = false;
+    await _suspendCamera();
+  }
+
   Future<void> _suspendCamera() async {
     final needsBoot = state is Booting;
     final needsPreview = switch (state) {
@@ -440,6 +456,7 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
     }
     _cameraLifecyclePhase = _CameraLifecyclePhase.active;
     _cameraLifecycleGeneration += 1;
+    final lifecycleGeneration = _cameraLifecycleGeneration;
     if (_initializationDeferredByInactive &&
         state is CameraInitializing &&
         _initializingCameraOperationId != null &&
@@ -470,9 +487,13 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
       } catch (_) {
         return;
       }
-      if (!_ownsCameraOperation(operationId)) {
-        return;
-      }
+    }
+    if (!_ownsCameraOperation(operationId) ||
+        _cameraLifecyclePhase != _CameraLifecyclePhase.active ||
+        lifecycleGeneration != _cameraLifecycleGeneration) {
+      return;
+    }
+    if (teardown != null) {
       _cameraNeedsDispose = false;
     }
     await _initializeCamera();

@@ -1068,6 +1068,58 @@ void main() {
       });
     });
 
+    test('background cancels a deferred initialization and resumes once', () {
+      fakeAsync((async) {
+        final harness = _Harness(async);
+        harness.camera.holdInitialize = true;
+        unawaited(harness.controller.start());
+        async.flushMicrotasks();
+
+        unawaited(harness.controller.onInactive());
+        unawaited(harness.controller.onBackgrounded());
+        async.flushMicrotasks();
+
+        expect(harness.camera.disposeCount, 1);
+        expect(harness.camera.wasInitializeCancelled(0), isTrue);
+
+        harness.camera.holdInitialize = false;
+        unawaited(harness.controller.onResumed());
+        async.flushMicrotasks();
+
+        expect(harness.camera.initializeCount, 2);
+        expect(harness.camera.maxConcurrentInitializationCount, 1);
+        expect(harness.state, isA<PreviewReady>());
+        harness.dispose(async);
+      });
+    });
+
+    test('new inactive invalidates resume waiting for parked teardown', () {
+      fakeAsync((async) {
+        final harness = _Harness(async);
+        harness.camera
+          ..holdInitialize = true
+          ..holdDispose = true;
+        unawaited(harness.controller.start());
+        async.flushMicrotasks();
+        unawaited(harness.controller.onInactive());
+        harness.camera.completeInitialize(0);
+        async.flushMicrotasks();
+
+        unawaited(harness.controller.onResumed());
+        unawaited(harness.controller.onInactive());
+        harness.camera.completeDispose(0);
+        async.flushMicrotasks();
+        expect(harness.camera.initializeCount, 1);
+
+        harness.camera.holdInitialize = false;
+        unawaited(harness.controller.onResumed());
+        async.flushMicrotasks();
+        expect(harness.camera.initializeCount, 2);
+        expect(harness.state, isA<PreviewReady>());
+        harness.dispose(async);
+      });
+    });
+
     test('inactive settles a newer never-completing capture marker', () {
       fakeAsync((async) {
         final harness = _Harness(async)..start(async);
