@@ -15,6 +15,191 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../../support/ocr_fakes.dart';
 
 void main() {
+  test('local OCR waits for the previous native request across recapture', () {
+    fakeAsync((async) {
+      final harness = _Harness(async, cloudConfigurationPending: true)
+        ..startCapture(async);
+      expect(harness.local.requests, hasLength(1));
+      unawaited(harness.controller.recapture());
+      async.flushMicrotasks();
+      expect(harness.state, isA<PreviewReady>());
+      unawaited(harness.controller.capture());
+      harness.camera.completeCapture(1, '/owned/capture-2.jpg');
+      async.flushMicrotasks();
+
+      expect(harness.state, isA<RecognizingLocal>());
+      expect(harness.local.requests, hasLength(1));
+      expect(
+        harness.files.cleanedPaths,
+        isNot(contains('/owned/capture-1.jpg')),
+      );
+      harness.local.complete(0, OcrResult.textDetected('stale'));
+      async.flushMicrotasks();
+      expect(harness.local.paths, [
+        '/owned/capture-1.jpg',
+        '/owned/capture-2.jpg',
+      ]);
+      expect(harness.state, isA<RecognizingLocal>());
+      expect(harness.files.cleanedPaths, contains('/owned/capture-1.jpg'));
+      harness.local.complete(1, OcrResult.textDetected('current'));
+      async.flushMicrotasks();
+      expect((harness.state as OcrSuccess).text, 'current');
+      harness.dispose(async);
+    });
+  });
+
+  for (final failFirst in [false, true]) {
+    test(
+      'local OCR drops invalidated waiting jobs after ${failFirst ? 'failure' : 'success'}',
+      () {
+        fakeAsync((async) {
+          final harness = _Harness(async, cloudConfigurationPending: true)
+            ..startCapture(async);
+          unawaited(harness.controller.recapture());
+          async.flushMicrotasks();
+          unawaited(harness.controller.capture());
+          harness.camera.completeCapture(1, '/owned/skipped.jpg');
+          async.flushMicrotasks();
+          unawaited(harness.controller.recapture());
+          async.flushMicrotasks();
+          unawaited(harness.controller.capture());
+          harness.camera.completeCapture(2, '/owned/latest.jpg');
+          async.flushMicrotasks();
+          expect(harness.local.requests, hasLength(1));
+          expect(harness.files.cleanedPaths, contains('/owned/skipped.jpg'));
+          if (failFirst) {
+            harness.local.fail(0, StateError('stale native failure'));
+          } else {
+            harness.local.complete(0, OcrResult.textDetected('stale'));
+          }
+          async.flushMicrotasks();
+          expect(harness.local.paths, [
+            '/owned/capture-1.jpg',
+            '/owned/latest.jpg',
+          ]);
+          expect(harness.state, isA<RecognizingLocal>());
+          harness.local.complete(1, OcrResult.textDetected('latest'));
+          async.flushMicrotasks();
+          expect((harness.state as OcrSuccess).text, 'latest');
+          harness.dispose(async);
+        });
+      },
+    );
+  }
+
+  test('dispose drops queued local OCR and retains only its active input', () {
+    fakeAsync((async) {
+      final harness = _Harness(async, cloudConfigurationPending: true)
+        ..startCapture(async);
+      unawaited(harness.controller.recapture());
+      async.flushMicrotasks();
+      unawaited(harness.controller.capture());
+      harness.camera.completeCapture(1, '/owned/queued.jpg');
+      async.flushMicrotasks();
+      harness.dispose(async);
+      expect(harness.local.requests, hasLength(1));
+      expect(
+        harness.files.cleanedPaths,
+        isNot(contains('/owned/capture-1.jpg')),
+      );
+      harness.local.fail(0, StateError('terminal native failure'));
+      async.flushMicrotasks();
+      expect(harness.local.requests, hasLength(1));
+      expect(
+        harness.files.cleanedPaths,
+        containsAll(['/owned/capture-1.jpg', '/owned/queued.jpg']),
+      );
+    });
+  });
+
+  test('native completion cleanup waits for a newer pending capture path', () {
+    fakeAsync((async) {
+      final harness = _Harness(async, cloudConfigurationPending: true)
+        ..startCapture(async);
+      unawaited(harness.controller.recapture());
+      async.flushMicrotasks();
+      unawaited(harness.controller.capture());
+      async.flushMicrotasks();
+      harness.local.complete(0, OcrResult.textDetected('stale'));
+      async.flushMicrotasks();
+      expect(
+        harness.files.cleanedPaths,
+        isNot(contains('/owned/capture-1.jpg')),
+      );
+      harness.camera.completeCapture(1, '/owned/capture-1.jpg');
+      async.flushMicrotasks();
+      expect(harness.local.requests, hasLength(2));
+      expect(
+        harness.files.cleanedPaths,
+        isNot(contains('/owned/capture-1.jpg')),
+      );
+      harness.local.complete(1, OcrResult.textDetected('current'));
+      async.flushMicrotasks();
+      expect((harness.state as OcrSuccess).text, 'current');
+      unawaited(harness.controller.recapture());
+      async.flushMicrotasks();
+      expect(
+        harness.files.cleanedPaths.where(
+          (path) => path == '/owned/capture-1.jpg',
+        ),
+        hasLength(1),
+      );
+      harness.dispose(async);
+    });
+  });
+
+  test('local OCR releases the gate after a synchronous service throw', () {
+    fakeAsync((async) {
+      final service = _ThrowOnceLocalService();
+      final harness = _Harness(
+        async,
+        cloudConfigurationPending: true,
+        localOverride: service,
+      )..startCapture(async);
+      expect(
+        (harness.state as RecoverableError).failure.kind,
+        OcrFailureKind.recognizer,
+      );
+      unawaited(harness.controller.recapture());
+      async.flushMicrotasks();
+      unawaited(harness.controller.capture());
+      harness.camera.completeCapture(1, '/owned/retry.jpg');
+      async.flushMicrotasks();
+      expect(service.calls, 2);
+      expect((harness.state as OcrSuccess).text, 'retry result');
+      harness.dispose(async);
+    });
+  });
+
+  test('stale preparation waits for a recaptured native input read', () {
+    fakeAsync((async) {
+      final harness = _Harness(async, prepareImmediately: false)
+        ..startCapture(async);
+      async.elapse(const Duration(seconds: 10));
+      unawaited(harness.controller.useLocalOcr());
+      async.flushMicrotasks();
+      unawaited(harness.controller.recapture());
+      async.flushMicrotasks();
+      expect(harness.state, isA<PreviewReady>());
+      harness.preparer.complete(0, canonicalPath: '/owned/capture-1.jpg');
+      async.flushMicrotasks();
+      expect(
+        harness.files.cleanedPaths,
+        isNot(contains('/owned/capture-1.jpg')),
+      );
+      harness.local.complete(0, OcrResult.textDetected('stale'));
+      async.flushMicrotasks();
+      expect(
+        harness.files.cleanedPaths.where(
+          (path) => path == '/owned/capture-1.jpg',
+        ),
+        hasLength(1),
+      );
+      expect(harness.state, isA<PreviewReady>());
+      harness.dispose(async);
+    });
+  });
+
   group('startup and camera ownership', () {
     for (final testCase in const [
       (
@@ -696,7 +881,7 @@ void main() {
           harness.files.cleanedPaths.where(
             (path) => path == '/owned/capture-1.jpg',
           ),
-          hasLength(1),
+          isEmpty,
         );
 
         harness.local.complete(0, OcrResult.textDetected('local late'));
@@ -724,7 +909,7 @@ void main() {
           harness.files.cleanedPaths.where(
             (path) => path == '/owned/capture-1.jpg',
           ),
-          hasLength(1),
+          isEmpty,
         );
 
         harness.local.complete(0, OcrResult.textDetected('local late'));
@@ -1854,6 +2039,7 @@ final class _Harness {
     Object? cleanupOrphansError,
     Object? settingsError,
     bool cloudConfigurationPending = false,
+    LocalOcrService? localOverride,
   }) : camera = ControllableCameraRepository(
          permission: cameraPermission,
          initializeError: cameraInitializeError,
@@ -1886,7 +2072,7 @@ final class _Harness {
         cameraRepositoryProvider.overrideWithValue(camera),
         disclosureStoreProvider.overrideWithValue(disclosure),
         cloudOcrServiceProvider.overrideWithValue(cloud),
-        localOcrServiceProvider.overrideWithValue(local),
+        localOcrServiceProvider.overrideWithValue(localOverride ?? local),
         imagePreparerProvider.overrideWithValue(preparer),
         transactionFilesProvider.overrideWithValue(files),
         appSettingsLauncherProvider.overrideWithValue(settings),
@@ -1939,5 +2125,18 @@ final class _Harness {
     subscription.close();
     container.dispose();
     async.flushMicrotasks();
+  }
+}
+
+final class _ThrowOnceLocalService implements LocalOcrService {
+  int calls = 0;
+
+  @override
+  Future<OcrResult> recognize(String imagePath) {
+    calls += 1;
+    if (calls == 1) {
+      throw StateError('synchronous native failure');
+    }
+    return Future.value(OcrResult.textDetected('retry result'));
   }
 }

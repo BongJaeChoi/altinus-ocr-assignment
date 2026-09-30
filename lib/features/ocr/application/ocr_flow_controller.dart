@@ -60,6 +60,7 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
 
   int _cameraOperationId = 0;
   Future<void>? _cameraTeardownFuture;
+  Future<void> _localOcrTail = Future<void>.value();
   _CameraLifecyclePhase _cameraLifecyclePhase = _CameraLifecyclePhase.active;
   int _cameraLifecycleGeneration = 0;
   int? _initializingCameraOperationId;
@@ -287,22 +288,39 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
     _activeTransactionId = transactionId;
     state = RecognizingLocal(transactionId: _label(transactionId));
 
-    try {
-      final result = await _localOcr.recognize(canonicalPath);
+    final operation = _localOcrTail.then((_) async {
+      // A recapture can invalidate a waiting job before native dispatch.
       if (!_ownsTransaction(transactionId)) {
         return;
       }
-      _writeResult(result, OcrEngine.local);
-    } catch (error) {
-      if (!_ownsTransaction(transactionId)) {
-        return;
+      final read = fileOwnerId == null
+          ? null
+          : _ownedFiles.beginRead(fileOwnerId, canonicalPath);
+      try {
+        final result = await _localOcr.recognize(canonicalPath);
+        if (_ownsTransaction(transactionId)) {
+          _writeResult(result, OcrEngine.local);
+        }
+      } catch (error) {
+        if (_ownsTransaction(transactionId)) {
+          state = RecoverableError(
+            failure: error is OcrFailure
+                ? error
+                : OcrFailure.of(OcrFailureKind.recognizer),
+          );
+        }
+      } finally {
+        if (read != null) {
+          _ownedFiles.settleRead(read);
+        }
       }
-      state = RecoverableError(
-        failure: error is OcrFailure
-            ? error
-            : OcrFailure.of(OcrFailureKind.recognizer),
-      );
-    }
+    });
+    // Always release the gate, including a synchronous service throw.
+    _localOcrTail = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    await operation;
   }
 
   Future<void> recapture() async {
@@ -327,7 +345,13 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
     _canonicalPath = null;
     try {
       if (fileOwnerId != null) {
-        await _ownedFiles.cleanupOwner(fileOwnerId);
+        if (_ownedFiles.hasReadInFlight(fileOwnerId)) {
+          // Native work cannot be cancelled. Keep its input alive while the
+          // user returns to preview; stale cleanup is contained and retryable.
+          unawaited(_cleanupStaleOwner(fileOwnerId));
+        } else {
+          await _ownedFiles.cleanupOwner(fileOwnerId);
+        }
       }
     } catch (error) {
       if (_ownsCameraOperation(operationId)) {
@@ -881,6 +905,14 @@ final class _PathProduction {
   }
 }
 
+final class _NativeRead {
+  _NativeRead(this.ownerId, this.path);
+
+  final int ownerId;
+  final String path;
+  final Completer<void> settled = Completer<void>();
+}
+
 final class _OwnedTransactionFiles {
   _OwnedTransactionFiles(this._files);
 
@@ -889,6 +921,7 @@ final class _OwnedTransactionFiles {
   final Map<String, Set<int>> _liveClaims = {};
   final Set<(int, String)> _released = {};
   final Set<_PathProduction> _productions = {};
+  final Set<_NativeRead> _reads = {};
   final Map<int, Future<void>> _cleanupTails = {};
   int _nextOwnerId = 0;
   int _physicalCleanupCount = 0;
@@ -896,6 +929,23 @@ final class _OwnedTransactionFiles {
   bool get cleanupInFlight => _physicalCleanupCount > 0;
 
   int createOwner() => ++_nextOwnerId;
+
+  _NativeRead beginRead(int ownerId, String path) {
+    final read = _NativeRead(ownerId, path);
+    _reads.add(read);
+    return read;
+  }
+
+  void settleRead(_NativeRead read) {
+    if (_reads.remove(read)) {
+      read.settled.complete();
+    }
+  }
+
+  bool hasReadInFlight(int ownerId) {
+    final paths = _pathsByOwner[ownerId];
+    return paths != null && _reads.any((read) => paths.contains(read.path));
+  }
 
   _PathProduction beginProduction(int ownerId) {
     final production = _PathProduction(ownerId);
@@ -975,7 +1025,25 @@ final class _OwnedTransactionFiles {
     int ownerId, {
     Iterable<String>? onlyPaths,
   }) async {
-    await _waitForNewerProduction(ownerId);
+    // Recheck producers and readers together after every await. A recapture
+    // may start a new same-path capture while an old native read is settling.
+    while (true) {
+      final paths = _pathsByOwner[ownerId] ?? <String>{};
+      final selected = onlyPaths == null
+          ? paths
+          : paths.intersection(Set<String>.of(onlyPaths));
+      final pending = <Future<void>>[
+        for (final production in _productions)
+          if (production.active && production.ownerId > ownerId)
+            production.settled,
+        for (final read in _reads)
+          if (selected.contains(read.path)) read.settled.future,
+      ];
+      if (pending.isEmpty) {
+        break;
+      }
+      await Future.wait(pending);
+    }
     final owned = _pathsByOwner[ownerId];
     if (owned == null || owned.isEmpty) {
       return;
@@ -1010,21 +1078,6 @@ final class _OwnedTransactionFiles {
     }
     for (final path in physical) {
       _release(ownerId, path);
-    }
-  }
-
-  Future<void> _waitForNewerProduction(int ownerId) async {
-    while (true) {
-      final pending = _productions
-          .where(
-            (production) => production.active && production.ownerId > ownerId,
-          )
-          .map((production) => production.settled)
-          .toList();
-      if (pending.isEmpty) {
-        return;
-      }
-      await Future.wait(pending);
     }
   }
 
