@@ -15,6 +15,8 @@ Use deterministic framework integration tests for repeatability and real-device 
 
 ARTEMIS is an Android UI automation system with CLI, MCP, and Python SDK surfaces. It does not currently establish native iOS coverage.
 
+Iterate on an Android device during development. Final evidence must include a clean-clone run with fixed inputs, cloud-first and local-fallback paths, Pigeon behavior, frame-time, memory, and heat observations. Borrowed iPhone evidence is required for the final iOS real-device proof.
+
 ### Local setup
 
 ```bash
@@ -43,11 +45,11 @@ Example exploratory run:
 
 ```bash
 uv run artemis run \
-  "Open the Altinus OCR app, grant camera permission, verify preview, capture printed text, wait for OCR, verify non-empty result, then retry" \
+  "Open the ARTINUS OCR app, grant camera permission, verify preview, capture printed text, wait for OCR, verify non-empty result, then retry" \
   --profile flash
 ```
 
-Minimum Android scenarios:
+Minimum Android scenarios (the cloud choice appears at 10 seconds, shares a cumulative 60-second budget, and permits at most two cloud attempts):
 
 - permission grant and happy path;
 - first denial, permanent denial/settings recovery;
@@ -58,6 +60,24 @@ Minimum Android scenarios:
 - retry after each recoverable failure.
 
 On ARTEMIS/tool failure, preserve the command, device state, logs, screenshot, and diagnosis. Do not turn a tool failure into an app pass/fail claim.
+
+### Verified Play Store AVD
+
+`AltinusPlayStore33` (Pixel 7 profile, Android 13/API 33,
+`google_apis_playstore/arm64-v8a`) was installed and boot-verified on the Apple
+Silicon test host. This host required the AVD's `hw.gpu.mode` to be
+`swiftshader_indirect`; the reliable headless launch is:
+
+```bash
+$ANDROID_SDK_ROOT/emulator/emulator \
+  -avd AltinusPlayStore33 -no-window -no-snapshot-load -no-audio
+```
+
+`adb devices -l`, `sys.boot_completed=1`, and the `com.android.vending`
+package were verified. Native OCR and fake-flow integration tests pass on this
+AVD. A sideloaded debug build still receives App Check `403 App attestation
+failed` before the model request, so this AVD is not physical Play Integrity
+evidence and the live Android cloud gate remains blocked.
 
 ## Chrome DevTools MCP
 
@@ -114,6 +134,43 @@ Because ARTEMIS and Chrome CDP do not cover native iOS camera behavior, use:
 
 If no real iPhone is available, report iOS real-device verification as blocked, not passed.
 
+### iOS simulator-first gate
+
+Run this gate from an ASCII-only checkout. The Korean parent path currently
+causes Flutter/Xcode SwiftPM percent-encoding failure before native code starts.
+
+```bash
+xcrun simctl boot <simulator-id> || true
+xcrun simctl bootstatus <simulator-id> -b
+flutter pub get
+flutter build ios --debug --no-codesign
+flutter test integration_test/native_ocr_smoke_test.dart -d <simulator-id>
+flutter test integration_test/fake_flow_test.dart -d <simulator-id>
+```
+
+Before direct `xcodebuild`, reset Flutter's generated target. An integration
+test temporarily points `Generated.xcconfig` at a disposable test-listener
+file, so running XCTest immediately afterward can read a stale path.
+
+```bash
+flutter build ios --simulator
+xcodebuild -quiet \
+  -workspace ios/Runner.xcworkspace \
+  -scheme Runner \
+  -sdk iphonesimulator \
+  -configuration Debug \
+  -destination 'platform=iOS Simulator,id=<simulator-id>,arch=x86_64' \
+  -only-testing:RunnerTests test \
+  CODE_SIGNING_ALLOWED=NO ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES
+```
+
+This proves the typed Pigeon boundary, Swift host behavior, bundled Korean ML
+Kit recognition for generated fixtures, deterministic UI recovery, and native
+unit policies. It does not prove camera hardware, permission/settings UI,
+flash, physical App Check attestation, device orientation, frame time, memory,
+heat, or Android parity. The ten-request native OCR check is not a substitute
+for ten physical capture cycles.
+
 ## Run record template
 
 ```text
@@ -128,3 +185,10 @@ Result: PASS | FAIL | BLOCKED
 Artifacts:
 Notes/follow-up:
 ```
+
+## Sources
+
+- [Apple: Running your app on simulated or physical devices](https://developer.apple.com/documentation/Xcode/running-your-app-on-simulated-or-physical-devices)
+- [Flutter integration testing](https://docs.flutter.dev/testing/integration-tests)
+- [Flutter testing overview](https://docs.flutter.dev/testing/overview)
+- [ML Kit text recognition on iOS](https://developers.google.com/ml-kit/vision/text-recognition/v2/ios)

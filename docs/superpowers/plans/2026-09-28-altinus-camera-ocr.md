@@ -510,7 +510,7 @@ Why:
 - Test: `test/features/ocr/data/pigeon_adapters_test.dart`
 
 **Interfaces:**
-- Produces: async `NativeOcrHostApi.recognizeKorean(String)` and `AppSettingsHostApi.open()` plus Dart adapters.
+- Produces: async `NativeOcrHostApi.recognizeKorean(String)` on a serial background task queue and platform-thread `AppSettingsHostApi.open()` plus Dart adapters.
 
 - [ ] **Step 1: Define the generator source**
 
@@ -533,6 +533,7 @@ class NativeOcrReply {
 }
 @HostApi()
 abstract class NativeOcrHostApi {
+  @TaskQueue(type: TaskQueueType.serialBackgroundThread)
   @asyncCallback
   NativeOcrReply recognizeKorean(String imagePath);
 }
@@ -592,17 +593,48 @@ dependencies {
 
 - [ ] **Step 2: Implement async OCR exactly at the host boundary**
 
-Reject a missing/non-file path. Use `InputImage.fromFilePath`, `KoreanTextRecognizerOptions.Builder().build()`, and asynchronous `process`. Blank `Text.text` becomes `NO_READABLE_TEXT`; nonblank text is returned unchanged. Return errors through the generated callback and close the recognizer on completion. Never log path or text.
+Reject a missing/non-file path and load `InputImage.fromFilePath` on the generated serial background task queue. Use `KoreanTextRecognizerOptions.Builder().build()` and asynchronous `process`. Blank `Text.text` becomes `NO_READABLE_TEXT`; nonblank text is returned unchanged. Return errors through an exactly-once generated callback, close the recognizer once on completion, and contain callback exceptions. Never log path or text.
 
 - [ ] **Step 3: Implement settings and register hosts**
 
-Open `Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))`. In `configureFlutterEngine`, register both generated host APIs against `engine.dartExecutor.binaryMessenger`.
+Open `Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))`. In `configureFlutterEngine`, register both generated host APIs against `engine.dartExecutor.binaryMessenger`. In `cleanUpFlutterEngine`, unregister both handlers, clear retained host references, and then call `super`.
 
 - [ ] **Step 4: Verify and commit**
 
+The app remains compiled for Java 17 (`sourceCompatibility`, `targetCompatibility`, and Kotlin `jvmTarget`). Run the app-owned unit/lint gate under JDK 17. The unqualified aggregate also executes pinned CameraX Robolectric SDK 36 tests, which require JDK 21; run that gate from a fresh ASCII-only copy with a temporary unpacked JDK 21 selected only through command-local `JAVA_HOME`. Do not install, replace, or reconfigure the system JDK.
+
 ```bash
 flutter build apk --debug
-(cd android && ./gradlew testDebugUnitTest lintDebug)
+
+task9_jdk17_home=$(/usr/libexec/java_home -v 17)
+(cd android && JAVA_HOME="$task9_jdk17_home" ./gradlew :app:testDebugUnitTest :app:lintDebug)
+
+# Download and unpack a pinned JDK 21 under /tmp; leave the system JDK unchanged.
+task9_jdk21_dir=$(mktemp -d /tmp/altinus-task9-jdk21.XXXXXX)
+case "$(uname -m)" in
+  arm64) task9_jdk21_arch=aarch64 ;;
+  x86_64) task9_jdk21_arch=x64 ;;
+  *) echo 'Unsupported macOS architecture' >&2; exit 1 ;;
+esac
+curl --fail --location \
+  "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_${task9_jdk21_arch}_mac_hotspot_21.0.12.1_1.tar.gz" \
+  --output "$task9_jdk21_dir/jdk21.tar.gz"
+tar -xzf "$task9_jdk21_dir/jdk21.tar.gz" -C "$task9_jdk21_dir"
+task9_jdk21_home=$(find "$task9_jdk21_dir" -type d -path '*/Contents/Home' -print -quit)
+test -x "$task9_jdk21_home/bin/java"
+"$task9_jdk21_home/bin/java" -version 2>&1 | grep 'version "21'
+
+task9_verify_dir=$(mktemp -d /tmp/altinus-task9-verify.XXXXXX)
+rsync -a \
+  --exclude='.git' \
+  --exclude='.dart_tool' \
+  --exclude='build' \
+  --exclude='android/.gradle' \
+  ./ "$task9_verify_dir/"
+(cd "$task9_verify_dir" && flutter pub get)
+(cd "$task9_verify_dir/android" && \
+  JAVA_HOME="$task9_jdk21_home" ./gradlew testDebugUnitTest lintDebug)
+
 git add android
 git commit -m 'feat(android): bridge bundled Korean OCR' -m 'What:
 - Implement Pigeon hosts with bundled Korean ML Kit and app settings.
@@ -617,6 +649,7 @@ Why:
 **Files:**
 - Modify: `ios/Podfile`, `ios/Podfile.lock`, `ios/Runner/AppDelegate.swift`, `ios/Runner.xcodeproj/project.pbxproj`
 - Create: `ios/Runner/MlKitNativeOcrHostApi.swift`, `IosAppSettingsHostApi.swift`
+- Add to Runner target Compile Sources (Task 10 owns this project membership): `ios/Runner/PlatformApis.g.swift`, `ios/Runner/MlKitNativeOcrHostApi.swift`, `ios/Runner/IosAppSettingsHostApi.swift`
 
 **Interfaces:**
 - Consumes: Task 8 generated Swift protocols.
@@ -636,7 +669,20 @@ Load `UIImage(contentsOfFile:)`; reject invalid input. Create `VisionImage`, ass
 
 - [ ] **Step 3: Implement settings and host registration**
 
-Open `UIApplication.openSettingsURLString` only when `canOpenURL` succeeds. Register both generated hosts against `controller.binaryMessenger` after plugin registration. Add `PlatformApis.g.swift`, `MlKitNativeOcrHostApi.swift`, and `IosAppSettingsHostApi.swift` to the Runner target’s Compile Sources phase.
+Open `UIApplication.openSettingsURLString` only when `canOpenURL` succeeds. The Flutter 3.47.5 template uses `FlutterImplicitEngineDelegate`, so keep host registration in `didInitializeImplicitFlutterEngine(_:)`. Immediately after `GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)`, use the implicit engine's application registrar for both generated setup calls:
+
+```swift
+NativeOcrHostApiSetup.setUp(
+  binaryMessenger: engineBridge.applicationRegistrar.messenger(),
+  api: MlKitNativeOcrHostApi()
+)
+AppSettingsHostApiSetup.setUp(
+  binaryMessenger: engineBridge.applicationRegistrar.messenger(),
+  api: IosAppSettingsHostApi()
+)
+```
+
+Do not use `controller.binaryMessenger`; this AppDelegate owns no explicit Flutter view controller. Task 10 must add the generated `PlatformApis.g.swift` and both handwritten host files to the Runner target's Compile Sources phase exactly once; generating or creating the files does not assign Xcode target membership.
 
 - [ ] **Step 4: Verify and commit**
 
@@ -720,8 +766,13 @@ Record model/OS/ID/commit. With no iPhone, mark iOS real-device proof blocked; d
 ```bash
 ALTINUS_ANDROID_DEVICE_ID="$(flutter devices --machine | jq -r '.[] | select(.targetPlatform | startswith("android")) | .id' | head -1)"
 test -n "$ALTINUS_ANDROID_DEVICE_ID"
+ARTINUS_LIVE_COMMIT="$(git rev-parse HEAD)"
+ARTINUS_ANDROID_LABEL='set the exact Android model/label recorded for this run'
 flutter test integration_test/native_ocr_smoke_test.dart -d "$ALTINUS_ANDROID_DEVICE_ID"
-flutter test integration_test/live_cloud_smoke_test.dart -d "$ALTINUS_ANDROID_DEVICE_ID" --dart-define=RUN_LIVE_OCR=true
+flutter test integration_test/live_cloud_smoke_test.dart -d "$ALTINUS_ANDROID_DEVICE_ID" \
+  --dart-define=RUN_LIVE_OCR=true \
+  --dart-define="OCR_DEVICE=$ARTINUS_ANDROID_LABEL" \
+  --dart-define="OCR_GIT_COMMIT=$ARTINUS_LIVE_COMMIT"
 flutter run --profile -d "$ALTINUS_ANDROID_DEVICE_ID"
 ```
 
@@ -732,8 +783,13 @@ Manually/with ARTEMIS verify disclosure, grant/deny/settings, preview, capture, 
 ```bash
 ALTINUS_IOS_DEVICE_ID="$(flutter devices --machine | jq -r '.[] | select(.targetPlatform | startswith("ios")) | .id' | head -1)"
 test -n "$ALTINUS_IOS_DEVICE_ID"
+ARTINUS_LIVE_COMMIT="$(git rev-parse HEAD)"
+ARTINUS_IOS_LABEL='set the exact iPhone model/label recorded for this run'
 flutter test integration_test/native_ocr_smoke_test.dart -d "$ALTINUS_IOS_DEVICE_ID"
-flutter test integration_test/live_cloud_smoke_test.dart -d "$ALTINUS_IOS_DEVICE_ID" --dart-define=RUN_LIVE_OCR=true
+flutter test integration_test/live_cloud_smoke_test.dart -d "$ALTINUS_IOS_DEVICE_ID" \
+  --dart-define=RUN_LIVE_OCR=true \
+  --dart-define="OCR_DEVICE=$ARTINUS_IOS_LABEL" \
+  --dart-define="OCR_GIT_COMMIT=$ARTINUS_LIVE_COMMIT"
 flutter run --profile -d "$ALTINUS_IOS_DEVICE_ID"
 ```
 

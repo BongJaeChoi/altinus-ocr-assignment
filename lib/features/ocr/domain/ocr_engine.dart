@@ -1,0 +1,1 @@
+enum OcrEngine { cloud, local }

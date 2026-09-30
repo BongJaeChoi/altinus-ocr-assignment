@@ -1,10 +1,10 @@
-# Altinus Camera OCR Design
+# ARTINUS Camera OCR Design
 
 Date: 2026-09-28
 
-Status: approved by the user on 2026-09-28
+Status: base design approved on 2026-09-28; Firebase delivery option B approved on 2026-09-29 for evaluator build convenience
 
-Authority: Altinus assignment README at commit `cb7c0d5323e9c0f347253cf52c09594e18342ced`
+Authority: ARTINUS assignment README at commit `cb7c0d5323e9c0f347253cf52c09594e18342ced`
 
 ## 1. Goal and scope
 
@@ -21,13 +21,13 @@ The implementation prioritizes functional completeness, observable recovery, and
 | Platform minimums | Android API 24, iOS 15.5 |
 | Camera | Flutter team `camera 0.12.1`, rear camera only |
 | State | `flutter_riverpod 3.4.3`, manual `NotifierProvider`, no Riverpod code generation |
-| Cloud OCR | Firebase AI Logic through Gemini Developer API, `gemini-3.8-flash`, low thinking level, structured JSON |
-| FlutterFire line | Xcode-compatible BoM `4.11.0` family: `firebase_core 4.6.0`, `firebase_ai 3.10.0`; App Check is not wired into the evaluation build |
+| Cloud OCR | Firebase AI Logic through Gemini Developer API; `gemini-3.8-flash` primary, `gemini-3.5-flash-lite` retry fallback, low thinking level, structured JSON |
+| FlutterFire line | Xcode-compatible BoM `4.11.0` family: `firebase_core 4.6.0`, `firebase_ai 3.10.0`, direct `firebase_app_check 0.4.2`; the evaluator build uses Play Integrity on Android and a registered debug provider token on iOS because the available Personal Team cannot use App Attest |
 | HTTP client | No custom endpoint is in scope. `firebase_ai` owns its transport. If a direct HTTP requirement appears, use a pinned Dio version behind an adapter instead of implementing raw `HttpClient`; do not add Dio before that need exists |
 | Local OCR | Official bundled Google ML Kit Korean Text Recognition on Android and iOS |
 | Native bridge | Pigeon `29.0.4`; generated Dart/Kotlin/Swift files are committed and never edited manually |
 
-All resolved native dependency versions must be locked by Gradle and CocoaPods files. Dynamic version selectors are prohibited.
+Resolved Android app configurations are locked by the generated Gradle lockfile. iOS preserves CocoaPods `Podfile.lock` and Xcode-generated, identical Runner project/workspace `Package.resolved` files for the mixed Pods/SwiftPM graph. Dynamic version selectors are prohibited.
 
 ## 3. Architecture
 
@@ -59,7 +59,7 @@ Repositories expose domain operations and convert service output into domain res
 
 ### Services and native adapters
 
-Services are replaceable external adapters. `FirebaseAiOcrService` calls the official `firebase_ai` API and owns Firebase result parsing and error classification; it does not replace or wrap the SDK transport with Dio. No application-level raw HTTP client is implemented or tested. If a future direct endpoint creates a real HTTP boundary, a Dio-backed adapter owns it. `MlKitOcrService` passes a temporary image file path through generated Pigeon code. Kotlin and Swift create, use, and release their ML Kit input and recognizer resources asynchronously.
+Services are replaceable external adapters. `FirebaseAiOcrService` calls the official `firebase_ai` API and owns Firebase result parsing and error classification; it does not replace or wrap the SDK transport with Dio. The unconfigured evaluator gateway exposes a stable pending capability. After capture ownership is established, the controller uses that capability to enter local OCR before creating cloud state, timers, image preparation, or an SDK call. A configured gateway reports `false`, remains cloud-first, and retains recovery for configuration/service failures. No message parsing or concrete-class check drives the pending-capability decision. For retry classification only, pinned `firebase_ai 3.10.0` does not expose 408/429 status or response headers, so the adapter recognizes a narrow allowlist of official retryable status tokens/messages; unknown server messages remain nonretryable, nothing is rendered to the user, and a package upgrade requires revalidation. The controller selects `gemini-3.8-flash` for attempt 1 and `gemini-3.5-flash-lite` for the only possible retry. The former post-dispatch typed-configuration fallback was removed: with stable composition it is unreachable, and keeping a second decision point could silently reinterpret a configured gateway failure. No application-level raw HTTP client is implemented or tested. If a future direct endpoint creates a real HTTP boundary, a Dio-backed adapter owns it. `PigeonLocalOcrService` passes a temporary image file path through generated Pigeon code. Kotlin and Swift create, use, and release their ML Kit input and recognizer resources asynchronously.
 
 No separate use-case layer is added; it would only duplicate orchestration already owned by the controller.
 
@@ -75,7 +75,7 @@ OcrResult
 
 Cloud structured output must explicitly identify one of these states. `textDetected` with blank text, a missing state, an unknown state, malformed JSON, or contradictory fields is an invalid response, not `noReadableText`.
 
-OCR must transcribe visible text only. It must not guess missing characters, correct spelling, translate, summarize, or infer content. ML Kit returning zero blocks or an empty string maps to `noReadableText`.
+OCR must transcribe visible text only. It must not guess missing characters, correct spelling, translate, summarize, or infer content. Native hosts map zero blocks or a blank recognized result to a `noReadableText` reply with `text == null`; the Dart adapter rejects either empty or non-empty contradictory text on that status as an invalid bridge response.
 
 ### Error categories
 
@@ -89,22 +89,22 @@ local: bridge | recognizer | invalidInput
 concurrency: duplicateCapture | staleResult | disposedOwner
 ```
 
-The public Firebase exception type is used when it is specific. Exception message text is never parsed to reconstruct an HTTP status. Unknown or ambiguous failures are not guessed to be transient.
+The public Firebase exception type is used when it is specific. Exception message text is never parsed to reconstruct an HTTP status. Pigeon maps exact `PlatformException.code` values: `INVALID_IMAGE_PATH`/`INPUT_IMAGE_FAILED` to invalid input, `OCR_FAILED` to recognizer failure, and channel/null/unknown failures to bridge failure. Raw codes remain internal. Unknown or ambiguous failures are not guessed to be transient.
 
 ### Retry policy
 
 - At most two cloud attempts exist in one transaction and the UI shows `1/2` or `2/2`.
 - Only a clearly identified transport/transient failure is retried once with bounded exponential backoff and jitter.
-- Quota, invalid configuration/key, disabled service, unsupported location, generic/ambiguous server failure, SDK parsing failure, safety/recitation, invalid schema, and the 60-second deadline are not automatically retried.
+- Quota, configured-gateway invalid configuration/key, disabled service, unsupported location, generic/ambiguous server failure, SDK parsing failure, safety/recitation, invalid schema, and the 60-second deadline are not automatically retried. The evaluator-only pending capability is a pre-dispatch composition branch, not an error-policy exception.
 - A non-retryable failure or a failed second attempt offers local OCR or recapture.
-- Choosing local OCR invalidates the cloud transaction. A late cloud completion is ignored.
+- Choosing local OCR invalidates the cloud transaction. The SDK call already in flight may not be physically cancellable; a late completion is ignored by transaction identity.
 
 ## 5. State and data flow
 
 ```mermaid
 flowchart TD
     START[App start] --> DISCLOSE{First-run disclosure accepted?}
-    DISCLOSE -- no --> INFO[Explain camera purpose and cloud transfer]
+    DISCLOSE -- no --> INFO[Explain camera purpose and possible cloud transfer]
     INFO --> PERMISSION[Request system camera permission]
     DISCLOSE -- yes --> PERMISSION
     PERMISSION -- granted --> INIT[Initialize rear camera]
@@ -112,7 +112,9 @@ flowchart TD
     DENIED --> SETTINGS[Open app settings through Pigeon]
     INIT --> PREVIEW[Preview ready]
     PREVIEW --> CAPTURE[Debounced still capture]
-    CAPTURE --> CLOUD_START[Enter recognizingCloud; total budget starts]
+    CAPTURE --> MODE{Cloud configured?}
+    MODE -->|pending| LOCAL
+    MODE -->|yes| CLOUD_START[Enter recognizingCloud; total budget starts]
     CLOUD_START --> PREPARE[Normalize direction and guard request size]
     PREPARE --> CLOUD[Cloud OCR request]
     CLOUD -->|valid text| CLOUD_RESULT[Display cloud result]
@@ -142,7 +144,7 @@ Only one capture/OCR transaction may be active. Capture is disabled or ignored w
 
 ## 6. Timing behavior
 
-The controller enters `recognizingCloud` immediately after a successful capture and starts the cloud budget before image preparation. Image preparation, first request, backoff, and second request share one cumulative 60-second budget. Retry and `조금 더 기다리기` never reset it.
+For a configured gateway, the controller enters `recognizingCloud` immediately after a successful capture and starts the cloud budget before image preparation. Image preparation, first request, backoff, and second request share one cumulative 60-second budget. Retry and `조금 더 기다리기` never reset it. The pending evaluator gateway instead enters local recognition immediately and creates no cloud budget.
 
 At 10 seconds, the request is still valid. The UI presents `기기에서 인식` as the primary recovery action and `조금 더 기다리기` as the secondary action. Waiting continues the same request and attempt count.
 
@@ -153,7 +155,7 @@ At 60 seconds, the controller invalidates the transaction and offers local OCR o
 The first run shows a short disclosure before the system permission prompt:
 
 - the camera is used to photograph text;
-- the captured image is sent to a cloud recognition service first;
+- the evaluation build sends the captured image to a cloud recognition service first and offers bundled on-device recognition as recovery;
 - the app does not retain the image in persistent local storage.
 
 The disclosure does not claim that an external cloud provider never stores data. Its accepted state is kept behind `DisclosureStore` so the persistence mechanism can be replaced in tests.
@@ -175,17 +177,45 @@ Input preparation performs only:
 
 Automatic contrast, sharpening, denoising, and geometric deskew are excluded until a fixed input set demonstrates a measurable benefit without unacceptable CPU, memory, or character damage.
 
-The app deletes transaction files on recapture, result exit, new flow, disposal, and recoverable startup cleanup of files created under its own temporary-file prefix. It never saves captures to the gallery or creates OCR history.
+The app deletes transaction files on recapture, result exit, new flow, disposal, and recoverable startup cleanup of derivatives created under its own temporary-file prefix. It does not sweep the OS camera temp root, so a canonical capture can remain there after abnormal process exit until OS cleanup. It never saves captures to the gallery or creates OCR history.
 
 Logs may contain transaction IDs, domain error categories, attempt count, elapsed time, and lifecycle state. They must not contain an image, recognized text, raw model response, API credential, or local image path.
 
 ## 9. Cloud and local OCR deployment
 
-Firebase AI Logic uses the Gemini Developer API from the client SDK. A direct Gemini secret key is not embedded or disguised through Gradle variables. Platform Firebase configuration is supplied according to Firebase's mobile setup and the README explains the evaluator setup needed for a clean checkout.
+Firebase AI Logic uses the Gemini Developer API from the client SDK. A direct Gemini Developer API key, service-account key, Apple account credential, or former-employer signing asset is never embedded. Platform Firebase configuration is supplied according to Firebase's mobile setup.
+
+### Single-target evaluation and signed cloud evidence
+
+The repository keeps one Android target and one iOS Runner scheme. It does not require an evaluator to select a flavor, scheme, or environment-specific entry point. The proposed durable identifiers are:
+
+| Resource | Proposed identifier |
+|---|---|
+| Firebase project ID | `artinus-ocr-bongjae-202609` |
+| Firebase display name | `ARTINUS OCR Assignment` |
+| Android application ID | `dev.bongjae.artinusocr` |
+| Apple bundle ID | `dev.bongjae.artinusocr` |
+
+These identifiers are reviewed before creation because the Firebase project ID cannot be changed after provisioning and the mobile identifiers become part of signing and App Check identity. If the exact Firebase project ID is unavailable, creation stops for a new explicit choice instead of silently adding a random suffix.
+
+`flutterfire configure` generates the platform entries and `lib/firebase_options.dart`. These Firebase options are committed because Firebase documents them as public project/app identifiers, not signing secrets. They associate the source with the dedicated assignment project and make the cloud composition reviewable. They do not contain a Gemini Developer API secret.
+
+### Evaluation credential exception: option B
+
+For this dedicated take-home project, the repository includes the minimum revocable material needed for an evaluator to clone and run the cloud-first path without receiving a second secret bundle. This is an explicit evaluation-convenience exception, not a production credential-management recommendation. The README must state that boundary next to the first run command rather than hiding it in a security appendix.
+
+- Android includes only the dedicated assignment keystore and the matching Gradle signing properties. Its SHA-256 certificate is registered with Firebase App Check. Every evaluator debug/release cloud artifact uses that identity. The Play Integrity settings must support distribution outside Google Play: `PLAY_RECOGNIZED` and `LICENSED` are not required, while device integrity is required.
+- iOS debug builds use a dedicated registered Firebase App Check debug token because the available free Personal Team cannot provide the App Attest capability. The token is supplied to `AppleDebugProvider` only in debug mode. An iOS release build must never contain or activate it and must fail closed or use the explicitly local-only composition.
+- The committed material may authorize only the dedicated Spark/no-billing assignment project. It must not include a Gemini Developer API key, service-account JSON, Firebase CLI login token, Apple ID password/session, `.p12`, provisioning profile, personal production key, or former-employer asset.
+- The debug token and Android signing key are treated as time-bounded evaluation credentials. They remain valid during evaluation, are revoked/removed after evaluation, and are rotated immediately if the repository is exposed beyond the intended reviewers. Git history is assumed permanent, so revocation—not deleting a later commit—is the recovery mechanism.
+
+Firebase explicitly warns against committing App Check debug tokens to public repositories. Option B knowingly accepts that narrow risk to remove evaluator setup friction, after rejecting its use for a production app. The mitigation is limited scope, no billing, App Check quotas/monitoring, a dedicated project, a debug-only iOS guard, and planned revocation. The final repository review must verify these controls before any push is proposed.
+
+The normal clean-checkout command remains `flutter run`, with one app target, one Runner scheme, and no alternate entry point. It initializes Firebase, activates the platform App Check provider, and then composes `FirebaseSdkModelGateway`; successful capture is cloud-first. Missing or failed Firebase/App Check initialization never becomes a false cloud-success claim: the UI gives a nontechnical recovery and retains local OCR. An explicit local-only test/development switch remains available without introducing a flavor.
 
 The app does not duplicate SDK networking with a raw `dart:io HttpClient`, a hand-written retrying client, or an unused Dio wrapper. Dio is introduced only if a direct non-Firebase endpoint becomes an approved requirement. Such an adapter must reuse the domain error boundary, obey the transaction-level 60-second budget, support request cancellation where possible, and disable request/response body logging because payloads can contain images or recognized text.
 
-The evaluation build uses the no-billing/free path only after live quota and model availability are rechecked. App Check integration and enforcement are excluded from the evaluation build because an unknown evaluator device cannot be pre-registered. This is documented as an abuse-protection trade-off, not a production recommendation.
+The project uses the Gemini Developer API no-billing/free path only after live quota and model availability are rechecked. Current Firebase AI Logic setup automatically enforces App Check, so the earlier plan to leave App Check inactive is rejected. Android uses production attestation; iOS uses the documented debug provider only for the evaluation debug build and is not described as production attestation.
 
 The local fallback bundles the official Korean recognizer on both platforms so it works without a model download. Its supported claim is Korean and Latin-family text; wider language coverage belongs to cloud OCR. Cloud unavailability must not prevent the evaluator from exercising the local fallback.
 
@@ -221,7 +251,7 @@ Google ARTEMIS may automate Android UI flows. Chrome DevTools MCP and Python CDP
 
 ### Clean-checkout gate
 
-Before delivery, clone the repository into a new directory and follow only its README. Verify dependency resolution, generated-code presence, static analysis, tests, Android build/install/run, iOS build/install/run, Firebase configuration behavior, and local fallback without relying on ignored developer files. Then verify that the GitHub URL is readable by an evaluator. Email submission is a separate external action and requires explicit user authorization at action time.
+Before delivery, clone the repository into a new directory and follow only its README. Verify dependency resolution, generated-code presence, static analysis, tests, Android build/install/run, iOS debug build/install/run, committed evaluation credential integrity, cloud-first recognition, and local fallback without relying on ignored developer files. Verify that release output cannot contain the iOS debug token, that Android artifacts use the registered assignment certificate, and that no forbidden credential class is tracked. Then verify that the GitHub URL is readable by an evaluator. Email submission is a separate external action and requires explicit user authorization at action time.
 
 ## 12. Evidence ledger
 
@@ -256,10 +286,10 @@ No push, public repository creation, recruiter email, or assignment submission i
 
 ## 15. Hiring-perspective review
 
-Overall design-readiness score: **91/100**.
+Overall design-readiness score: **89/100**.
 
-- **HR / recruiter: 88/100.** The design traces the assignment, AI decisions, trade-offs, and truthful verification limits. The remaining risk is presentation: the final README must condense this evidence instead of copying the full design narrative.
-- **Hiring manager / development lead: 92/100.** The state, native, lifecycle, privacy, and test boundaries are implementation-ready. The unresolved proof obligations are live Firebase behavior, generated Pigeon integration, clean-checkout builds, and real-device evidence on both platforms.
+- **HR / recruiter: 91/100.** One-command cloud execution reduces reviewer setup friction and keeps the primary assignment behavior visible. The README must label the credential exception briefly so it reads as a deliberate take-home trade-off rather than accidental secret leakage.
+- **Hiring manager / development lead: 87/100.** The architecture and fail-closed boundaries remain strong, but committing a reusable signing key and App Check debug token is a material production-security anti-pattern. The score recovers only if the repository proves assignment-only scope, debug/release separation, no billing, no broader credentials, and a concrete revocation step.
 
 The highest-leverage completion steps are D0 document reconciliation, state-machine tests before controller implementation, and early Android/iOS camera/native smoke runs rather than deferring platform integration to the end.
 
@@ -268,5 +298,5 @@ The highest-leverage completion steps are D0 document reconciliation, state-mach
 - [Altinus assignment README, pinned commit `cb7c0d5323e9c0f347253cf52c09594e18342ced`](https://github.com/git-artinus/artinus-fe-recurit/blob/cb7c0d5323e9c0f347253cf52c09594e18342ced/README.md)
 - [Flutter integration testing](https://docs.flutter.dev/testing/integration-tests), [performance profiling](https://docs.flutter.dev/perf/ui-performance), [memory](https://docs.flutter.dev/tools/devtools/memory), and [app architecture](https://docs.flutter.dev/app-architecture)
 - [Flutter camera](https://pub.dev/packages/camera), [Pigeon](https://pub.dev/packages/pigeon), [Riverpod](https://riverpod.dev/docs/introduction/getting_started), and [Dio](https://pub.dev/packages/dio)
-- [Firebase AI Logic](https://firebase.google.com/docs/ai-logic), [Gemini API troubleshooting](https://ai.google.dev/gemini-api/docs/troubleshooting), and [Google ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition/v2)
+- [Firebase AI Logic](https://firebase.google.com/docs/ai-logic), [FlutterFire setup](https://firebase.google.com/docs/flutter/setup), [Firebase configuration objects](https://firebase.google.com/docs/projects/learn-more#config-files-objects), [Flutter App Check](https://firebase.google.com/docs/app-check/flutter/default-providers), [Flutter App Check debug provider](https://firebase.google.com/docs/app-check/flutter/debug-provider), [Play Integrity outside Google Play](https://firebase.google.com/docs/app-check/android/play-integrity-provider), [Firebase API-key guidance](https://firebase.google.com/docs/projects/api-keys), [Gemini API troubleshooting](https://ai.google.dev/gemini-api/docs/troubleshooting), and [Google ML Kit Text Recognition](https://developers.google.com/ml-kit/vision/text-recognition/v2)
 - [Apple privacy guidance](https://developer.apple.com/design/human-interface-guidelines/privacy) and [Android runtime permission guidance](https://developer.android.com/training/permissions/requesting)

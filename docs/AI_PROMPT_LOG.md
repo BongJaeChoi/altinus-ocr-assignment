@@ -316,3 +316,511 @@ flowchart LR
 - Disposition: adopted. 공유 계약과 고위험 비동기 상태를 먼저 고정한 뒤 SDK·플랫폼 adapter를 분리하면 재작업과 병렬 충돌을 줄이고 README 평가항목별 증거를 생성할 수 있기 때문이다.
 - Rejected/modified: 모든 기능을 한 에이전트가 한 번에 구현하거나 iOS 통합을 마지막까지 미루는 방식은 기각했다. 병렬 작업은 기반 계약 완료 후 서로 겹치지 않는 Android/iOS 또는 adapter 파일에만 허용한다.
 - Verification/evidence: `docs/superpowers/plans/2026-09-28-altinus-camera-ocr.md`; 구현과 기기 검증은 아직 시작하지 않았다.
+
+### 2026-09-28 — user + AI / D0 실행 문맥 정합성
+
+- Request/prompt: 구현 전 stale execution context를 승인된 설계 명세와 일치시키고, 기존 AI 결정 기록은 append-only로 보존.
+- Scope/files: `docs/PRD.md`, `docs/CONTEXT.md`, `docs/E2E_TESTING.md`, `.agents/catalog.yaml`; `AGENTS.md`는 확인만 수행.
+- Decision/result: Flutter 3.47.5 / Dart 3.13.4, 결과 표시 전용, `firebase_ai` cloud-first와 공식 한국어 ML Kit Pigeon fallback, 수동 Riverpod NotifierProvider, 10초 선택·누적 60초 cloud budget·최대 2회 시도, Android 반복 개발·iPhone 최종 증거, clean-clone/fixed-input/cloud-local/Pigeon/frames/memory/heat evidence를 현재 실행 기준으로 반영했다. 카메라 권한 용어는 공식 패키지 상태(`denied`, `restricted`, `permanentlyDenied`)를 유지한다.
+- Disposition: adopted.
+- Verification/evidence: pre-edit drift search matched superseded stack, selectable/copyable, Flutter/Dart versions, and uncommitted-stack/decision markers; D0 gates run after reconciliation.
+
+### 2026-09-28 — user + AI / SDK 없는 OCR 도메인 계약과 상태 고정
+
+- Request/prompt: SDK 타입이 새지 않는 OCR·카메라·저장소·설정 경계와 immutable OCR 흐름 상태를 TDD로 구현.
+- Decision/result: Cloud/local OCR, 이미지 준비·정리, 설정, 공개 동의, 카메라 계약을 순수 Dart 타입으로 분리했다. `OcrResult`는 공백 텍스트를 거부하고, `transportTransient`만 재시도 가능하다. sealed `OcrFlowState`는 모든 화면 상태와 cloud transaction ID·시도 수·지연 표시·시작 시각 및 결과 엔진을 모델링한다.
+- Disposition: adopted. 이후 Firebase, camera, Pigeon adapter와 controller가 컴파일 시점의 SDK-독립 경계에 의존하도록 하기 위함이다.
+- Verification/evidence: test-first RED에서 누락된 도메인 타입 오류를 확인한 후 focused test 4개를 GREEN으로 통과했다. `dart analyze lib/features test/features`와 ASCII 임시 복제본의 exact `flutter analyze lib/features test/features`가 통과했다. 원본 한글 상위 경로의 Flutter analyze는 분석 서버 LSP 초기화 파싱 오류로 실패하는 기존 환경 제약이다.
+
+### 2026-09-28 — user + AI / OCR 텍스트 생성자 불변식 보강
+
+- Request/prompt: public `TextDetected` 생성자가 공백 텍스트 불변식을 우회할 수 있다는 리뷰 지적을 수정하고, 모든 failure kind의 retryability를 증명.
+- Decision/result: `TextDetected`의 unchecked public const 생성자를 제거하고, 검증하는 public factory와 private const 생성자로 제한했다. 재시도 테스트는 `OcrFailureKind.values` 전체를 순회하여 `transportTransient`만 true임을 확인한다.
+- Disposition: adopted. 모든 public construction path에서 `OcrResult`의 nonblank 도메인 불변식을 보장하고 향후 enum 추가 시 보수적 재시도 정책의 회귀를 막기 위함이다.
+- Verification/evidence: 새 direct-construction regression test는 수정 전 `returned <Instance of 'TextDetected'>`로 RED를 확인했고, 수정 후 focused test 5개와 전체 test 6개가 통과했다. ASCII 임시 복제본에서 exact `flutter analyze lib/features test/features`도 통과했다.
+
+### 2026-09-28 — user + AI / 단일 소유 OCR transaction controller 구현
+
+- Request/prompt: Task 3의 SDK-독립 port/state만 사용해 수동 Riverpod auto-dispose controller를 TDD로 구현하고, 10초 선택·60초 누적 마감·최대 2회 시도·local 전환·stale completion·lifecycle·정리 경계를 fake clock으로 검증.
+- Scope/files: `lib/features/ocr/application/ocr_flow_controller.dart`, `lib/features/ocr/application/ocr_providers.dart`, `test/features/ocr/application/ocr_flow_controller_test.dart`, `test/support/ocr_fakes.dart`.
+- Decision/result: 카메라 async operation ID와 cloud/local transaction ID를 분리하고 모든 async 상태 쓰기를 소유권으로 보호했다. 10/60초 timer는 capture 성공 직후와 image preparation 전에 한 번만 시작하고, `keepWaiting`과 retry가 원본 request·attempt·deadline을 바꾸지 않게 했다. 임시 파일은 capture 소유 세대별로 기록해 같은 경로가 재사용되거나 preparation이 늦게 완료되어도 소유 파일만 한 번씩 정리한다.
+- Disposition: adopted with deterministic timing injection. 운영 retry는 최대 2초로 제한된 exponential backoff + jitter를 사용하고, 테스트는 500ms 전략으로 override해 경계를 재현 가능하게 고정했다.
+- Rejected/modified: request별 60초 timer 재생성, 임의 예외 메시지를 분석한 retry, local 선택 후 cloud 결과 반영, 경로 문자열 전역 dedup은 기각했다. 특히 경로 재사용은 새 파일 소유권이므로 capture 세대별 정리로 수정했다.
+- Verification/evidence: 최초 RED는 controller/provider 파일 누락 컴파일 실패였다. lifecycle/recapture 경합은 수정 전 initialize count `expected 1, actual 2`, 경로 재사용은 cleanup count `expected 2, actual 1`로 각각 RED를 확인했다. deadline 후 늦은 cleanup 실패가 `CloudRecovery`를 `RecoverableError`로 덮어쓰는 RED도 추가로 확인했다. 최종 focused 23개, 전체 29개 test가 통과했고, `dart analyze` 및 ASCII 복제본의 exact `flutter analyze lib/features/ocr/application test/features/ocr/application test/support/ocr_fakes.dart`가 문제없이 완료됐다. 원본 한글 상위 경로의 `flutter analyze`는 기록된 analysis-server LSP JSON 파싱 결함으로 코드 진단 전 종료됐다.
+
+### 2026-09-28 — AI review fix / OCR controller 진입·경로 소유·예외 경계 보강
+
+- Review/request: Task 4 리뷰에서 `start`/`acceptDisclosure` 중복·오진입, 오래된 owner와 새 owner가 같은 경로를 겹칠 때의 잘못된 실제 삭제, 그리고 port 예외의 미분류·dispose 후 zone leak를 Important 문제로 보고.
+- Decision/result: `start` 진입은 `Booting`, `acceptDisclosure` 진입은 `DisclosureRequired`로 제한하고 각각 pending flag로 첫 await 전부터 debounce했다. 파일 owner ID는 capture 콜백이 아닌 capture 시작 순서로 배정한다. 더 최신 owner의 capture/preparation이 경로를 생산 중이면 오래된 정리를 유예하고, 같은 경로를 이미 최신 owner가 claim했으면 오래된 물리 삭제를 억제한다. 물리 cleanup이 진행 중일 때는 새 capture를 받지 않는다.
+- Exception policy: orphan cleanup, disclosure read/write, recapture cleanup, active camera disposal, settings launch 실패를 메시지 파싱 없이 domain `OcrFailure` 회복 상태로 변환했다. operation/state 소유권이 사라진 실패는 현재 상태를 바꾸지 않고, provider dispose 후 camera/file cleanup 실패는 contained future로 종료한다.
+- Disposition: adopted. 단순 path-string dedup이나 오래된 cleanup의 즉시 실행은 활성 파일 삭제 가능성 때문에 기각했다. 경로 생산과 물리 cleanup 사이를 owner 세대와 gate로 직렬화했다.
+- Verification/evidence: 수정 전 duplicate `start`는 orphan cleanup `expected 1, actual 2`, cloud 중 `start`는 camera initialize `expected 1, actual 2`로 RED였다. 늦은 capture의 정리가 newer active path를 실제 cleanup하고, newer pending claim 전에도 cleanup을 시작하는 RED를 확인했다. orphan cleanup 예외은 수정 전 private message와 stack으로 zone에 누출되고 state가 `Booting`에 머물렀다. 보강 후 focused 42개와 전체 48개 test, in-place `dart analyze`, ASCII 복제본의 exact `flutter analyze lib/features/ocr/application test/features/ocr/application test/support/ocr_fakes.dart`가 통과했다.
+
+### 2026-09-28 — AI re-review fix / live file claims and invalidatable operation tokens
+
+- Review/request: Task 4 second review found that pending path-producer waits could deadlock after invalidation, historical highest-owner state could suppress a necessary later cleanup, failed cleanup discarded retry ownership, entry booleans could be stuck or cleared by an older `finally`, and late preparation could delete the canonical input retained for local OCR.
+- Decision/result: startup and disclosure work now use operation-scoped tokens that invalidation abandons independently. Capture assigns an owner and a producer marker before its first await; inactive, deadline, recapture, local selection, and provider disposal settle only the relevant wait marker while the underlying future remains free to finish into stale-owner recording and cleanup. A private ownership helper tracks only live path claims, serializes cleanup per owner, releases ownership only after successful physical cleanup or safe suppression by a newer live claim, and attempts every owner during disposal even after an earlier failure.
+- Canonical policy: deadline and local fallback retain the active canonical claim. A late preparation cleans only newly derived stale outputs; recapture or disposal later cleans the retained canonical exactly once. Cleanup failures retain their paths and claims for a later retry.
+- Disposition: adopted. Monotonic historical path ownership and shared in-flight booleans were removed because neither represents current ownership. Source futures are not treated as canceled; only controller wait markers and state authority are invalidated.
+- Verification/evidence: regression-first failures included pending-start retry `expected 2, actual 1`, never-completing newer producer leaving older cleanup empty, released newer same-path ownership leaving physical cleanup count `expected 2, actual 1`, failed cleanup retry count `expected 2, actual 1`, and deadline-late preparation deleting the canonical path. After the fix, focused 54 tests and full 60 tests passed; in-place `dart analyze` and exact `flutter analyze` in ASCII copy `/tmp/altinus-task4-rereview.rm2kbA` reported no issues.
+
+### 2026-09-28 — user + AI / first-run disclosure and recoverable OCR UI
+
+- Request/prompt: Persist the approved camera/cloud disclosure and render every immutable OCR flow state with only controller actions, concise Korean recovery copy, and mobile-safe layout.
+- Scope/files: SharedPreferences disclosure adapter; state-driven OCR presentation; app composition seam; focused persistence and widget tests.
+- Decision/result: Acceptance is stored only as `disclosure.camera_cloud.v1`, with a missing value treated as unaccepted. The disclosure states camera purpose, cloud OCR image transfer, and no persistent local image storage. One exhaustive Dart switch maps each approved state to a display-only screen; cloud-only states can transition once to local OCR, whereas local outcomes cannot loop back. No user-facing copy exposes vendor, bridge, transport, exception, or numeric error details.
+- Disposition: adopted. A provider-injected app home seam retains smoke bootability until Task 11 wires real adapters instead of adding fake production dependencies.
+- Verification/evidence: Missing adapter/screen tests first failed at compilation (RED). Focused persistence/presentation tests then passed (13 tests), including exact `1/2`/`2/2`, 10-second actions, fallback boundaries, unsafe-copy absence, and a small viewport/2x text check. Native-path `flutter analyze` hit the known analysis-server LSP JSON path failure; an ASCII temporary copy completed the same requested analysis with no issues.
+
+### 2026-09-29 — AI review correction / disclosure gate and recoverable progress UI
+
+- Review/request: A recovery from startup failure could enter camera initialization without rechecking the persisted disclosure. The initial UI also lacked recovery actions for camera initialization, capture, and local recognition, and needed stronger copy, reachability, lifecycle, and semantics evidence.
+- Decision/result: Every `recapture()` now reads `DisclosureStore.hasAccepted()` after cleanup and before either preview restoration or camera initialization. An unaccepted value returns to `DisclosureRequired`; a read failure returns safe domain recovery; operation ownership guards stale reads. Progress-only states expose the existing recapture action. Dynamic progress, result, empty, and recovery regions are live regions; titles are semantic headings; the viewport minimum height now contains its padding.
+- Disposition: adopted. The disclosure gate is a privacy boundary and cannot be bypassed by recovery. Reusing the controller's existing recapture invalidation preserves bounded, user-directed recovery without inventing cancellation or new timeout policy.
+- Verification/evidence: Regression-first controller tests failed with `PreviewReady` rather than `DisclosureRequired` and accepted-recapture read count `1` rather than `2`. Widget regressions failed for the missing disclosure screen, missing progress recapture key, and absent heading/live-region semantics. The corrected focused controller suite has 58 passing tests and presentation suite has 19; the final full suite has 85 and ASCII-path analysis has no issues.
+
+### 2026-09-29 — AI re-review correction / serialized camera retry and stable recovery announcement
+
+- Review/request: Retrying while camera initialization was still pending could create a second adapter-owned initialization before the first released its resources. The live-region wrapper was inconsistent across states, generic startup failures implied OCR/capture had already failed, and the lifecycle test did not actually dispose before the callback it intended to test.
+- Decision/result: `CameraRepository.dispose()` now documents the adapter contract that it terminates pending initialization/resource ownership. A non-ready recapture invalidates the prior camera operation, awaits that teardown boundary, verifies ownership, then begins exactly one replacement initialization. The controllable camera fake models held initialization cancellation, active/max concurrent initialization, and live sessions. The screen has one stable, top-level live region for every switched state, while titles remain headings. `RecoverableError` presents only the neutral Korean “잠시 문제가 생겼어요. 다시 시도해 주세요.” with “다시 시도”. Startup is deferred to a scheduled second post-frame callback so a real build-phase replacement can dispose the screen before the provider read.
+- Disposition: adopted. Starting a replacement before `dispose` completes would violate the camera adapter's exclusive resource ownership. Per-branch live regions were removed because permission and preview transitions otherwise had no consistent announcement container. A neutral recovery avoids making an untrue claim about which operation failed.
+- Verification/evidence: New regression tests were RED before the implementation: pending-init recapture observed `disposeCount 0` and stale old initialization remained uncancelled; preview lacked the stable live region; injected raw startup failure lacked the generic copy; and the real build-phase disposal test observed one startup. After the correction, the focused controller/presentation command passed 79 tests, including max concurrent initialization `1`, one live replacement session, stale-completion suppression, preview/denial live semantics, generic unsafe-copy absence, and pre-callback disposal.
+- Final verification: full `flutter test` passed 87 tests. The expanded `flutter analyze` scope passed with `No issues found` in a fresh ASCII-path temporary copy after the test fake stopped exposing a private held-initialization type through its public API.
+
+### 2026-09-29 — AI final correction / shared camera teardown ownership
+
+- Review/request: A recovery could read disclosure and exit before disposing a pending invalidated initialization; repeated recovery/lifecycle calls each invoked adapter teardown independently, so a stale teardown could overlap or outlive a replacement session.
+- Decision/result: The controller now owns one `_cameraTeardownFuture`. `_ensureCameraDisposed()` starts `CameraRepository.dispose()` once, shares that exact future with every caller, and clears it only when that exact future settles. `recapture()` awaits teardown immediately after invalidation and before file cleanup or disclosure read; after the await, only the current operation can continue. `onInactive`, resume waiting, and terminal provider cleanup use the same boundary. A failed disposal leaves `_cameraNeedsDispose` true for a later user-directed retry, while terminal cleanup remains contained.
+- Disposition: adopted. A shared controller boundary is required because repository resource ownership spans controller entry points; independent `dispose()` calls cannot prove ordering or prevent a stale teardown from reaching a newer camera session.
+- Verification/evidence: RED controller tests observed `disposeCount 0` when disclosure was false or failed after a pending initialize, two dispose calls for rapid recaptures, and no second teardown after a failed inactive disposal. GREEN passed all four regressions: pending initialization is cancelled before false/error disclosure handling, rapid retries share one held teardown and produce one live replacement session with max concurrent initialization `1`, and teardown failure is retryable without an unhandled future.
+- Final verification: focused controller/presentation tests passed 83 tests; full `flutter test` passed 91 tests. The expanded analysis scope reported `No issues found` in a fresh ASCII-path temporary copy; `git diff --check` passed.
+
+### 2026-09-29 — user + AI / official camera adapter and lifecycle-safe preview
+
+- Request/prompt: Integrate only Flutter's pinned `camera 0.12.1` behind an injectable pure facade, preserve SDK-free application/domain contracts, render an isolated preview, and own inactive/resume teardown without stale initialization or capture callbacks.
+- Decision/result: Rear-only `ResolutionPreset.high`/audio-off sessions map exact permission codes without message parsing. Adapter initialization, capture, and per-session teardown use generation and single-flight ownership; failed teardown remains retryable, and a stale JPEG is deleted or handed to controller-owned cleanup. `CameraPreviewSurface` alone constructs `CameraPreview`; fake repositories render a neutral placeholder. Auto/off flash appears only after a successful auto probe, hides on failure, and resets through lifecycle reinitialization.
+- Disposition: adopted after review corrections. Front-camera fallback, duplicate capture, unsupported flash claims, lost failed-dispose ownership, forgotten stale paths, and concurrent native disposal calls were rejected.
+- Verification/evidence: Test-first RED covered missing adapter/lifecycle behavior, rear-only fallback, teardown retry, stale deletion ownership, and single-flight disposal. Final full suite passed 116 tests; exact Flutter analysis passed in ASCII worktree `/tmp/altinus-task6-final.Liu301`; Android debug APK and iOS debug no-codesign app both built. Pinned CameraX uses `.jpg` and pinned AVFoundation defaults to JPEG; physical output/flash parity remains a later real-device gate.
+
+### 2026-09-29 — AI review correction / terminal native teardown and boot lifecycle resume
+
+- Review/request: `CameraController.dispose()` marks the controller disposed before native teardown settles, so a failed native release followed by a successful no-op retry cannot prove exclusive ownership was released. Booting work interrupted by lifecycle also lacked resume intent, and startup could run while the app was initially hidden or paused.
+- Decision/result: `CameraPluginRepository` now latches the first teardown failure per concrete session, never invokes that session's dispose again, retains it, and blocks initialize/capture with `interrupted`; only a successful first teardown permits replacement initialization. The controller distinguishes its generic repository-level retry boundary from this terminal official-adapter state. Booting inactive records resume intent, resume creates a new guarded `start()` generation, and stale orphan-cleanup/disclosure completions cannot overwrite the new branch. `OcrScreen` deduplicates all non-resumed lifecycle states and defers initial boot while hidden/paused.
+- Disposition: adopted. Process/app restart is the only conservative recovery after an unproven native release; UI remains generic. Controller-level retry remains valid only for repository implementations that can prove later release.
+- Verification/evidence: RED observed a second raw dispose being accepted, only one boot attempt after inactive/resume, and hidden/paused mount failing to resume into preview. A production-semantics fake proves a later raw dispose would no-op, while the repository makes only one native call, retains ownership, rejects initialize/capture, and never opens a replacement. Refreshed final verification follows in the Task 6 report.
+- Refreshed verification: format checked 26 files with zero changes; focused camera/controller/presentation passed 115 tests and the full suite passed 122. ASCII-path analysis reported no issues; Android debug and iOS debug no-codesign builds both succeeded. The remaining physical-device JPEG/flash/orientation gate is unchanged.
+
+### 2026-09-29 — user + AI / bounded Firebase OCR core; project configuration pending
+
+- Request/prompt: Implement Task 7 Steps 1–3 and a provider-ready Firebase SDK gateway, but stop before choosing or mutating any Firebase project because the user has not authorized which of four existing projects to reuse.
+- Scope/files: `lib/features/ocr/data/{firebase_ai_ocr_service,image_preparer,temp_image_store}.dart`, `lib/features/ocr/application/ocr_providers.dart`, and focused data tests. `main.dart`, Firebase generated options/service files, console APIs, billing, and App Check were intentionally not changed.
+- Decision/result: Added pinned `firebase_ai` structured OCR with `gemini-3.8-flash`, low thinking, JSON schema, `InlineDataPart`, transcription-only instructions, exact line preservation, strict duplicate/malformed/contradictory response rejection, and public-type-only error mapping. Added async file validation/read/write, 32 MiB source and 8192-dimension/32-Mi-pixel decode guards, isolate-owned decode/EXIF/resize/encode, sub-14-MiB derivatives, canonical preservation, partial-write cleanup, and path/symlink-safe prefixed orphan cleanup.
+- Disposition: core adopted; Firebase configuration and live model/quota verification remain `NEEDS_CONTEXT` until the user selects an exact existing Firebase project ID. No `flutterfire configure`, project/app creation, AI Logic enablement, billing/App Check mutation, generated Firebase files, or synthetic `main.dart` initialization was performed.
+- Review: independent review initially identified unbounded raster/source inputs, partial derivative retention, and duplicate JSON keys. Regressions were added first and all findings were fixed; final re-review reported no remaining Critical or Important findings.
+- Verification/evidence: initial RED was missing production files; later REDs reproduced directory-symlink escape, non-safety block misclassification, duplicate JSON acceptance, excessive source dimensions/bytes, and partial-write retention. Final focused data tests passed 52, full suite passed 174, format/context-budget/diff checks passed, and scoped Flutter analysis reported no issues in ASCII copy `/tmp/altinus-task7-final.8nL1Cy`. Android debug and ASCII-copy iOS debug no-codesign builds succeeded. Original-path iOS build remains affected by the recorded Unicode-path SwiftPM encoding issue, not a Dart compile failure.
+
+### 2026-09-29 — AI review correction / iOS capture cleanup and actual-byte image validation
+
+- Review/request: Follow-up review found that pinned AVFoundation captures live under `Directory.systemTemp/camera`, outside `path_provider`'s iOS cache root; it also identified stat/read races, magic-byte-only upload validation, nonexclusive derivative naming, insufficient deletion identity checks, and incomplete EXIF direction evidence.
+- Decision/result: Explicit owner cleanup now accepts only the injected cache root or pinned camera root and fails closed outside them, while startup cleanup remains limited to direct `altinus_ocr_` files in the derivative root. Cleanup rejects links/non-files, walks in-root components, revalidates after resolution, and deletes the resolved candidate. Portable Dart cannot make hostile ancestor replacement and unlink atomic, so the guarantee is intentionally scoped to private mobile sandbox roots. Image preparation and upload recheck actual bytes after stat; upload bytes are dimension/pixel bounded and fully decoded in `Isolate.run`, with MIME derived from the supported decoder. Derivatives use cryptographically random names and OS-exclusive creation with collision retry.
+- Disposition: adopted. Silent outside-root cleanup was rejected because the controller would release ownership without deleting the iOS capture; arbitrary `Directory.systemTemp` cleanup and camera-root startup sweeping were also rejected.
+- Verification/evidence: regression-first compilation failures proved the new seams were absent. GREEN includes distinct cache/camera-root deletion boundaries, outside/traversal/symlink/root-identity/race rejection, propagated cleanup failures and controller ownership retry, fake/truncated/path-replaced/growing images, bounded decode, exclusive collision retention, clockwise EXIF marker placement, and mirrored EXIF placement. Focused data tests passed 65, full suite passed 187, scoped ASCII-path analysis reported no issues, and Android debug plus ASCII-copy iOS debug no-codesign builds succeeded. Firebase project selection/configuration and live model verification remain explicitly pending user choice.
+
+### 2026-09-29 — user + AI / typed Pigeon boundaries and implicit-engine registration correction
+
+- Request/prompt: Generate reproducible typed Korean OCR/settings Pigeon contracts, keep generated files generator-owned, test app-owned Dart mappings, and correct the later iOS host-registration plan for Flutter 3.47.5's implicit-engine AppDelegate.
+- Scope/files: `pigeons/platform_apis.dart`, generated Dart/Kotlin/Swift contracts, Dart OCR/settings adapters, focused adapter tests, and Task 10 registration instructions. No native host implementation or Firebase/external state changed.
+- Decision/result: `NativeOcrGateway` and `SettingsGateway` isolate generated clients from app ports. Detected text is preserved, no-readable-text is explicit, null/blank detected text is `invalidResponse`, gateway exceptions are `bridge`, and settings booleans pass through. Task 10 now registers both generated setup classes after plugin registration with `engineBridge.applicationRegistrar.messenger()` and owns Runner Compile Sources membership for generated and handwritten Swift files.
+- Disposition: adopted after review correction. `controller.binaryMessenger` was rejected because the committed Flutter template implements `FlutterImplicitEngineDelegate` and has no explicit controller registration boundary.
+- Verification/evidence: adapter RED failed on missing types before implementation; GREEN passed the focused mappings. A temporary null-validation regression made the new null contradiction test fail by returning `NoReadableText`, then the restored implementation passed. Pigeon regeneration was stable; scoped analysis passed from an ASCII-path verification copy because the Korean parent path triggers the recorded analysis-server framing defect. Local Pigeon output confirms both `setUp(binaryMessenger:api:)` signatures, and the installed Flutter 3.47.5 template/engine examples confirm `engineBridge.applicationRegistrar.messenger()`.
+
+### 2026-09-29 — user + AI / Android bundled Korean ML Kit hosts
+
+- Request/prompt: Implement Task 9 only: pin bundled Korean ML Kit `16.0.1`, implement the generated asynchronous OCR/settings hosts, register both in `configureFlutterEngine`, preserve recognized text exactly, and close recognizer resources on every terminal path without logging image paths or text.
+- Scope/files: Android app Gradle dependency, `MlKitNativeOcrHostApi`, `AndroidAppSettingsHostApi`, `MainActivity`, and focused JVM policy tests. Generated Pigeon files, iOS, Firebase configuration, and external state were not changed.
+- Decision/result: Missing, blank, and non-file paths fail before decoding; `InputImage.fromFilePath` and `KoreanTextRecognizerOptions` feed asynchronous ML Kit processing. Blank results map to `NO_READABLE_TEXT`, nonblank results are returned byte-for-byte as Kotlin strings, and all host errors use sanitized Pigeon `FlutterError` callbacks. Recognizers are closed before every success/failure callback after creation. App settings opens the package details intent.
+- Disposition: adopted with a narrow pure-policy seam and JUnit dependency; Robolectric and broader native test dependencies were not added. No path or recognized text is logged or included in error details.
+- Verification/evidence: RED failed because `NativeOcrPolicy` did not exist; GREEN passed 3 focused policy tests. Pigeon regeneration produced no generated diff, the 7 Dart adapter tests passed, ML Kit resolved exactly to `16.0.1`, app-scoped Gradle unit tests and `lintDebug` passed, and a debug APK built. The aggregate unqualified Gradle test task also ran CameraX plugin-owned Robolectric tests and failed 55 of 180 because the plugin misdecoded the Korean parent path; this is retained as an environment risk rather than masked by app configuration changes.
+
+### 2026-09-29 — AI review correction / background OCR, one-shot completion, and host teardown
+
+- Review/request: Follow-up review found that file validation and `InputImage.fromFilePath` ran on Flutter's platform thread, OCR/settings callbacks and recognizer cleanup lacked adversarial exactly-once evidence, host handlers were not detached, and settings URI construction introduced a `UseKtx` lint warning.
+- Decision/result: The generator source now annotates only `NativeOcrHostApi.recognizeKorean` with Pigeon 29.0.4's serial background task queue; regenerated Kotlin and Swift bind that method to a background queue while settings remains on the platform thread. OCR uses injectable image-loader and recognizer-session seams plus an `AtomicBoolean` terminal gate, closes a created session once before replying, sanitizes loader/engine failures, contains callback exceptions, and preserves exact nonblank text. Existing regular files, including symlinks to regular files, pass the host path check; actual image validity remains `InputImage.fromFilePath`'s responsibility and corrupt inputs map to `INPUT_IMAGE_FAILED`. Settings separates launch failure from callback delivery and builds `package:` URIs with `Uri.fromParts`.
+- Lifecycle/result: `MainActivity` gives only `applicationContext` to OCR, retains Activity only for settings, pairs generated setup/teardown through a tested registration lifecycle, unregisters both handlers with `setUp(messenger, null)`, clears host references, and calls `super.cleanUpFlutterEngine`.
+- Verification/evidence: Regression-first tests initially failed on missing seams, exposed a recursive registration callback as `StackOverflowError`, and rejected a private invalid-path signal; each was corrected before GREEN. The 19 focused JVM tests cover missing/corrupt inputs, sync creation/process failures, async success/blank/failure, task-result and close failures, callback exceptions, duplicate completion, settings intent/failure/callback behavior, and detach/re-register pairing. `:app:testDebugUnitTest :app:lintDebug`, the 7 Dart adapter tests, ML Kit `16.0.1` dependency insight, stable Pigeon regeneration, and `flutter build apk --debug` pass. The exact aggregate `./gradlew testDebugUnitTest lintDebug` also passes in a fresh ASCII-path copy under temporary JDK 21 (504 tasks); JDK 17 cannot run CameraX's SDK 36 Robolectric cases. App lint reports no `UseKtx` issue (only two pre-existing Gradle/resource warnings).
+
+### 2026-09-29 — user + AI / iOS static Korean ML Kit and settings hosts
+
+- Request/prompt: Implement Task 10 only with the exact `GoogleMLKit/TextRecognitionKorean` `8.0.0` pod, generated Pigeon host protocols, orientation-aware offline Korean OCR, sanitized one-shot replies, settings launch mapping, implicit-engine registration, and compile-source membership exactly once.
+- Scope/files: iOS Podfile/lock/workspace/project integration, `MlKitNativeOcrHostApi`, `IosAppSettingsHostApi`, `AppDelegate`, and focused RunnerTests. Generated Pigeon files, Android production code, Firebase configuration, and external state were not changed.
+- Decision/result: `UIImage(contentsOfFile:)` plus a non-nil `cgImage` validates inputs, `VisionImage.orientation` preserves `UIImage.imageOrientation`, and `KoreanTextRecognizerOptions` selects the Korean recognizer. Whitespace trimming is used only to decide `NO_READABLE_TEXT`; nonblank recognized text is returned exactly. A lock-protected terminal gate admits only the first synchronous, asynchronous, duplicate, or reentrant completion. Failures expose only stable codes and generic messages with nil details and no logging. Settings checks `canOpenURL` before calling `open`, then returns only the resulting boolean. Both generated handlers register immediately after plugins through `engineBridge.applicationRegistrar.messenger()`.
+- Static/lifecycle disposition: The exact top-level pod is locked at `8.0.0`, and its installed vendored recognizer binary is a static archive. Changing the entire Podfile to static framework linkage was rejected because the existing Flutter SwiftPM Firebase products then duplicated GoogleUtilities/Promises/GTMSession symbols. The official installed ML Kit headers expose main-queue completion and no recognizer close API; the recognizer is retained through its completion and released by ARC afterward.
+- Verification/evidence: RED compiled the test target against missing `NativeOcrRunner`, `NativeOcrReply`, and settings host seams. GREEN runs 9/9 RunnerTests on an iOS 18.5 x86_64 simulator, including exact text/blank mapping, sanitized failures, duplicate completion, synchronous throw-after-callback, and settings outcomes. Pigeon regeneration is byte-stable, all 194 Flutter tests and the 7 focused adapter tests pass, and Flutter analysis reports no issues. A clean ASCII-path copy passes `pod install`, iOS debug no-codesign build, and simulator `xcodebuild`; the original Korean parent path still fails inside Flutter's SwiftPM path encoding, so Xcode was not modified to mask that environment defect. Physical-device Korean accuracy, settings navigation, orientation, latency, and resource behavior remain a device gate.
+
+### 2026-09-29 — user + AI / production composition and guarded full-flow smokes
+
+- Request/prompt: Compose Tasks 4–10 into the production app, prove the disclosure/camera/cloud/local flow with deterministic fakes, generate on-device OCR fixtures, and add native/live smokes without selecting or mutating a Firebase project.
+- Scope/files: async SharedPreferences bootstrap, Riverpod production defaults, `AltinusOcrApp`/`OcrScreen` composition, a typed pending-Firebase gateway, deterministic PNG fixture support, fake-flow/native/live integration tests, and focused composition/live-gate tests. No Firebase project/app, credential, billing, App Check, remote, submission, or external state changed.
+- Decision/result: `main()` creates `SharedPreferencesDisclosureStore` before `runApp`; providers construct the camera, Firebase service, bounded preparer, temporary-file store, Pigeon local OCR, and Pigeon settings adapters. Until an exact Firebase project is authorized, `FirebaseConfigurationPendingGateway` fails only an attempted cloud request with the typed `configuration` category, so app startup remains safe. A future configured bootstrap must initialize Firebase and override `firebaseModelGatewayProvider` with `FirebaseSdkModelGateway`.
+- Test disposition: The fake E2E test first failed because `AltinusOcrApp` still rendered the placeholder shell. GREEN covers disclosure acceptance, preview, pause/resume camera reinitialization, cloud multiline preservation, recapture, a transient cloud failure with a pending second attempt, local selection, and rejection of the late cloud success. Canvas/TextPainter generates Korean/Latin, no-text, dark/low-contrast, 90-degree, and multiline PNGs; repeated generation is byte-deterministic and all variants decode without committed binary fixtures.
+- Live safety: Native OCR executes only on Android/iOS. Live cloud skips only when `RUN_LIVE_OCR` is false or the target is non-mobile; when enabled on mobile it explicitly calls `Firebase.initializeApp()` and treats missing/failed authorized configuration as a test failure, not a skip. Its sole success record contains model, platform, device, OS, and commit; it never logs image bytes/path or recognized text.
+- Verification/evidence: Full Flutter suite passed 200 tests. The fake E2E passed on `flutter-tester`; native and live smokes compiled and reported their expected guards. ASCII copy `/private/tmp/altinus-task11.5gK6dL` passed `flutter analyze`, the 200-test suite, Android debug build, and iOS debug no-codesign build. Pigeon regeneration is byte-stable, context budgets and handwritten diff checks pass. Physical Android/iPhone native OCR and authorized-project live cloud runs remain explicit device/configuration gates.
+
+### 2026-09-29 — AI review correction / deterministic full-flow clock
+
+- Review/request: The fake full-flow test overrode every external adapter and retry delay but still inherited `DateTime.now` through `ocrNowProvider`.
+- Decision/result: The integration test now injects one fixed UTC clock, removing its final wall-clock dependency without adding a test-only production API.
+- Verification/evidence: `flutter test -d flutter-tester integration_test/fake_flow_test.dart` passes 1/1 after the fixed-clock override; review found no Critical or Important issues.
+
+### 2026-09-29 — user + AI / evaluator README and release-gate evidence
+
+- Request/prompt: Create a concise evaluator README only from verified evidence; include setup, architecture, pinned dependencies, hybrid cloud-to-local behavior, 10/60-second bounds, privacy lifecycle, tests, AI examples, the Korean-parent-path workaround, and exact pending gates. Do not claim Firebase/live cloud, physical-device results, or flash readiness.
+- Decision/result: Added `README.md` with a typed Firebase-pending default disclosure, source-commit-bound release-gate table, and explicit Android/iPhone/Firebase/flash blocks. The handoff uses no credentials, images, recognized-text logs, or raw model output. It records that a configured cloud gateway requires a separately authorized existing Firebase project and that local Pigeon fallback remains the evaluation path after recovery.
+- Disposition: adopted as a documentation handoff backed by repository code, task reports, lockfiles, the pinned assignment README, and fresh commands. The final ASCII clean-clone command outputs are appended after the committed-branch proof; they are not inferred from prior debug builds.
+- Fresh initial verification/evidence: on source commit `2aff05253de75ffd55b7bf418419527efd176feb`, `flutter pub get`, Pigeon regeneration plus generated-file diff, and the requested Dart format gate passed; `flutter test` passed 200 tests; `flutter build apk --release` passed and reported a universal `84.5MB` APK. The original Korean-parent path reproduced the known analyzer LSP `FormatException: Unterminated string` before source diagnostics and the known SwiftPM percent-encoded Firebase package path failure before iOS compilation. No source/Xcode workaround was applied; an isolated ASCII-path verification follows.
+- ASCII clean-clone evidence: committed branch `0bb87c62312c0398753831775e372c1acf171a1a` was cloned to `/private/tmp/altinus-task13-clone.hTu5St/altinus-ocr`. `flutter pub get`, Pigeon regeneration plus `git diff --exit-code`, `flutter analyze` (no issues, 4.3s), and `flutter test` (200 tests) passed. Android debug/release and iOS debug/release no-codesign builds passed. Observed universal APK sizes were 189M debug and 84.5MB release; the observed iOS `Runner.app` directories were 171M debug and 68.8MB release. Xcode created two untracked SwiftPM workspace metadata directories after iOS build; no tracked-file diff was produced. These builds do not replace hardware execution or live Firebase verification.
+
+### 2026-09-29 — review correction / ARTINUS identity and evaluator-mode clarification
+
+- Review/request: Correct the evaluator-visible company name from Altinus to ARTINUS; make the Firebase-unconfigured evaluator flow, actual temporary-file lifecycle, live-run metadata defines, clean-tree evidence, and AI-use categories explicit.
+- Decision/result: The visible Flutter title, Android application label, and iOS display name now say `ARTINUS OCR`; internal Dart/package/bundle identifiers remain unchanged to avoid unnecessary integration churn. README now specifies the intentional default evaluator flow `촬영 → configuration recovery UI → 기기에서 인식`, canonical-file retention for local re-recognition, and bounded startup sweep. The prior absolute ASCII clone path is clarified as ephemeral verification evidence only; it is removed from evaluator-facing README instructions.
+- Disposition: adopted after a title widget RED/GREEN cycle and code-path review of `TempImageStore`/`OcrFlowController`. No Firebase, device, submission, or credential action is authorized by this correction.
+- Verification/evidence: the new title assertion failed while no `ARTINUS OCR` widget existed, then `flutter test test/app_smoke_test.dart` passed 3/3 after the copy update. Full `flutter test` passed 200 tests; Pigeon regeneration stayed stable; Android debug build passed in the original worktree. An isolated ASCII-path copy passed `flutter analyze` (no issues) and iOS debug no-codesign build. The earlier absolute clone path was ephemeral verification context only; evaluator-facing instructions now use `$ARTINUS_CLONE_DIR` and a generic ASCII temp root.
+
+### 2026-09-29 — AI review correction / SwiftPM status wording
+
+- Review correction: `git status --porcelain --untracked-files=all` reports files rather than directory entries. The final evaluator wording now identifies two untracked `Package.resolved` files below Xcode-created SwiftPM workspace metadata directories; the tracked tree remained clean.
+
+### 2026-09-29 — whole-branch pre-release review / evaluator fallback, native taxonomy, and locks
+
+- Review/request: Four Important static findings required a clean-checkout evaluator path, code-only native error mapping, contradictory Pigeon response rejection, reproducible Android/iOS dependency resolution, and evaluator-facing trade-off disclosure.
+- TDD decision/result: `CloudOcrService` now exposes an explicit pending-configuration capability. Only that capability combined with typed `OcrFailureKind.configuration` proceeds directly to local OCR; configured gateway configuration/service failures retain recovery. Controller, widget, app-smoke, and fake-flow tests first failed against the old recovery path and then passed without message parsing or concrete-class checks.
+- Native decision/result: `PigeonLocalOcrService` catches `PlatformException` explicitly and maps `INVALID_IMAGE_PATH`/`INPUT_IMAGE_FAILED` to `invalidInput`, `OCR_FAILED` to `recognizer`, and channel/null/unknown codes to `bridge`. A `noReadableText` reply accepts only `text == null`; empty and non-empty text are contradictory bridge responses. Focused tests cover each code, generic failures, and both contradictions; raw codes never reach UI copy.
+- Locking decision/result: Gradle locks all app configurations. A clean clone exposed `kotlin-stdlib-common:2.4.0` only when Flutter's assemble graph ran; declaring that module as app `runtimeOnly` lets the supported `:app:dependencies --write-locks` command persist debug/profile/release runtime configurations. Manual lock edits and lenient mode were rejected. Xcode-generated Runner project/workspace `Package.resolved` files are identical; CocoaPods `Podfile.lock` remains authoritative for `firebase_ai`, which does not yet support Flutter SwiftPM.
+- Verification/evidence: RED reproduced the pending recovery tap, coarse bridge classification, contradictory empty reply acceptance, and default-mode Android dependency lock validation failure. GREEN focused tests passed 155, app smoke passed 3, and fake integration passed 2. Fresh ASCII clone `9101ac1701e36bb3101efb95ffb32a2e99c1ab35` passed Pigeon byte-stability, `flutter analyze`, all 213 Flutter tests, 2 fake integration tests, default-mode locked Android debug build, app JVM tests/lint, and iOS debug no-codesign build. Gradle lock regeneration remained SHA-256 `dc93b92fae0976f297e6978f1c8392a326bd5b21eef205817c6274d37e4115ec`; both SwiftPM locks and post-resolve output remained `300c9e8c5be6d6b31b633179f945c82f9406b1865344c3952fb591b971b52438`; tracked contents stayed clean.
+- Evidence hygiene: Pigeon 29.0.4 regeneration is byte-stable and its generated Dart trailing spaces were not hand-edited. Whitespace verification is scoped to handwritten source. Firebase project/app creation, App Check, credentials, device execution, push, submission, and external state remained untouched.
+
+### 2026-09-29 — final review correction / App Check disclosure and pending-service invariant
+
+- Review correction: `firebase_ai` transitively packages App Check artifacts even though the app does not activate App Check, install a token provider, or configure enforcement. README, design, and release-gate wording now distinguishes packaged dependencies from unconfigured runtime/security behavior rather than calling App Check absent from the build.
+- Test evidence: A focused controller regression now covers pending capability plus typed `service` failure and proves it retains cloud recovery without invoking local OCR. This complements pending-plus-configuration auto-local coverage and the configured configuration/service matrix; the controller file passed 75 tests and the full suite passed 214.
+
+### 2026-09-29 — independent review follow-up / pre-dispatch local path and default lock mode
+
+- Review/request: A pending evaluator gateway still entered `recognizingCloud`, started 10/60-second timers, invoked `ImagePreparer`, and called Firebase before its typed configuration fallback. The same review found that evidence called Gradle locking “strict” even though the build never sets `LockMode.STRICT`.
+- TDD decision/result: Four controller regressions first failed because cloud state/preparation occurred and no local request existed. After canonical ownership is recorded, a stable `configurationPending` capability now starts local OCR immediately. Held/failing preparers, the cloud service, and cloud budget remain untouched; local success/failure, recapture/dispose one-time cleanup, and stale completion are covered. Configured capability `false` remains cloud-first with configuration/service recovery.
+- Fallback disposition: The post-dispatch typed configuration fallback was removed. In the committed provider topology the capability is a stable composition fact, so that branch is unreachable; retaining it would create a second, failure-time policy that could reinterpret a real configured-gateway error.
+- Locking correction: `lockAllConfigurations()` uses Gradle's default lock mode. Existing lock state constrains and validates resolution; only explicit STRICT adds failure when a locked configuration has no associated state. `:app:resolvableConfigurations` and the generated lockfile each name 57 configurations with empty set differences. No lock mode or lockfile content was manually changed.
+- Verification/evidence: Fresh ASCII clone `b3642340b1a154d6ec2840024b51d94f17650219` passed byte-stable Pigeon regeneration, `flutter analyze` with no issues, all 216 Flutter tests, 2 fake integration tests, and the Android debug build. Supported lock regeneration preserved SHA-256 `dc93b92fae0976f297e6978f1c8392a326bd5b21eef205817c6274d37e4115ec`; resolvable/lock-state configuration counts were 57/57 with both differences empty, and tracked contents remained clean.
+
+### 2026-09-29 — user + AI / dedicated Firebase project and durable mobile identity
+
+- Request/prompt: Create the explicitly authorized Firebase project `artinus-ocr-bongjae-202609` with display name `ARTINUS OCR Assignment`, register exactly one Android and one iOS app as `dev.bongjae.artinusocr`, then align both native projects and regenerated Pigeon output in one commit. Do not enable billing or App Check, create alternate identifiers, or generate Firebase SDK configuration yet.
+- Remote decision/result: The exact project ID was proved absent before creation. The active project was created without a billing flow, then one active Android app (`1:867285305627:android:b00b0c0a36bcd8780f6bbe`) and one active iOS app (`1:867285305627:ios:f03ea9c48ae6ee7a0f6bbe`) were registered with the approved namespace. Project number `867285305627` and the app IDs are non-secret identifiers; no access token or SDK configuration was recorded.
+- Source decision/result: `.firebaserc` binds the repository to the exact project. Android namespace/application ID, Kotlin source/test packages and paths, Pigeon Kotlin package/output path, and all Runner/RunnerTests bundle IDs now share `dev.bongjae.artinusocr`; no flavors, extra application entry point, or extra Runner scheme was added. Pigeon was generated only from `pigeons/platform_apis.dart` twice, with identical SHA-256 hashes on the second run.
+- Verification/evidence: Remote JSON assertions confirmed the exact active project and exactly two approved apps. The 15 Dart adapter tests, Android `:app:testDebugUnitTest`, and all 216 Flutter tests passed; direct `dart analyze` reported no issues. `flutter analyze` itself reproducibly exits before source diagnostics because Flutter 3.47.5 truncates its LSP initialization payload at this repository's Korean parent path, and `xcodebuild -list` remains blocked by the separately documented percent-encoded SwiftPM path defect. Static assertions verified one Android app module/entry point, one shared Runner scheme, two expected Xcode targets, three Runner IDs, three RunnerTests IDs, nine Kotlin package declarations, no stale example identifier, formatting, diff hygiene, and context budgets.
+
+### 2026-09-29 — user + AI / generated Firebase mobile configuration
+
+- Request/prompt: Generate FlutterFire configuration only for the approved dedicated Firebase project and its existing Android/iOS apps, pin direct `firebase_app_check 0.4.2`, refresh native lock state with supported generators, verify without exposing client API key values, and do not activate Firebase or App Check at runtime.
+- TDD decision/result: `test/firebase_options_test.dart` first failed because `lib/firebase_options.dart` did not exist. FlutterFire CLI 1.3.2 then generated Dart, Android, and iOS client configuration for project `artinus-ocr-bongjae-202609` and namespace `dev.bongjae.artinusocr`; the focused test passed afterward. The CLI's CI validation required the existing `Runner` target to be stated alongside the requested iOS output path, so `--ios-target=Runner` was added without creating a target, scheme, flavor, or alternate entry point.
+- Dependency/integration result: `firebase_ai 3.10.0` and `firebase_core 4.6.0` stayed pinned; `firebase_app_check 0.4.2` changed only from transitive to direct. Generated Android Google Services plugin and iOS resource membership changes were retained. The supported Gradle lock generator and two ASCII-path iOS no-codesign builds produced stable tracked lock state with no manual lock edits.
+- Verification/evidence: Sanitized assertions matched both generated mobile configs to the approved project/apps and confirmed the remote inventory remained exactly one Android plus one iOS app before and after generation. Independent review strengthened the durable test from a nonempty Android ID check to exact approved Android and iOS app-ID assertions. The focused test passed 1/1, the full Flutter suite passed 217 tests, the Android debug build passed, and ASCII-path `flutter analyze` plus iOS debug no-codesign build passed. The original Korean parent path reproduced the known Flutter analyzer framing failure and SwiftPM percent-encoded path failure; no source workaround was introduced. App Check provider activation/enforcement, billing, signing, runtime Firebase bootstrap, push, and submission remain untouched.
+
+### 2026-09-29 — user + AI / opt-in Firebase and App Check bootstrap
+
+- Request/prompt: Add the sole `ARTINUS_CLOUD_EVIDENCE=true` production composition switch, initialize the committed Firebase options and mobile App Check providers in strict order only when enabled, preserve the default direct-local evaluator path, sanitize bootstrap failures, and avoid all live Firebase or remote configuration actions.
+- TDD decision/result: The five bootstrap tests first failed to compile because the bootstrap module, runtime seam, factory, and configured-failure gateway did not exist. The minimal implementation returns the pending gateway before constructing a production runtime when disabled; when enabled it executes `firebase.initialize`, `appCheck.activate`, then `gateway.create`. Initialization, activation, and gateway-construction exceptions are contained as a non-pending typed configuration failure without logging or retaining raw exception text.
+- Runtime decision/result: Production initialization uses `DefaultFirebaseOptions.currentPlatform`. The pinned `firebase_app_check 0.4.2` source confirms the requested `AndroidProvider.playIntegrity` and `AppleProvider.appAttestWithDeviceCheckFallback` activation API; activation is guarded to Android/iOS. `main()` resolves the gateway before `runApp` and overrides the Riverpod provider alongside the disclosure store. No flavor, scheme, target, entry point, dependency, remote App Check setting, billing, signing, or external state changed.
+- Verification/evidence: Bootstrap tests passed 5/5, smoke tests 3/3, controller tests 77/77, fake integration tests 2/2, and the full Flutter suite 222/222. The default tests record no Firebase runtime call, cloud request, image preparation, or cloud timer path. The original Korean parent path reproduced the known analyzer LSP framing failure before source diagnostics; an ASCII-only clone reported no issues. Context-budget, diff, secret-pattern, and production-log scans passed.
+
+### 2026-09-29 — user + AI / Android evidence signing and App Check registration
+
+- Request/prompt: Create one dedicated Android evidence signing identity for `dev.bongjae.artinusocr`, register its SHA-256 with the existing Firebase Android app, require it for `ARTINUS_CLOUD_EVIDENCE=true`, preserve clean-checkout builds, and register only Play Integrity without billing or unrelated service changes.
+- Build/security result: Gradle now decodes Flutter's comma-separated Base64 dart defines during configuration. A cloud-enabled build fails with the stable registered-identity message unless all four ignored signing properties are present; ordinary clean-checkout release/debug behavior retains the debug-signing fallback. The RSA-4096 key and password file live outside the repository under owner-only directory/file modes, and the ignored local `android/key.properties` is not tracked. No password, keystore, debug token, or environment dump was recorded.
+- Remote result: Existing Android app `1:867285305627:android:b00b0c0a36bcd8780f6bbe` was resolved before mutation and initially had no certificate hashes. The dedicated public certificate SHA-256 `B9:61:41:1C:0F:D0:2D:24:ED:94:CD:8A:06:A2:D2:C5:5B:19:58:6C:AD:6F:F2:4C:4E:8A:89:8E:4F:6F:E5:26` is now the sole registered SHA-256. Firebase Console registered Play Integrity only for the Android app; the iOS app remains unregistered and the project remains on Spark.
+- App Check disposition: The App Check API table reports `Firebase AI Logic 사용을 시작하여 앱 체크를 사용 설정하세요.` and exposes no enforcement control because Firebase AI Logic is not started in this project. That exact state was confirmed without enabling billing or another service; live token/cloud evidence remains Task 7.
+- Verification/evidence: Before the change, a cloud-enabled no-key release incorrectly built. Afterward, an ASCII clean clone built debug and rejected the same release at Gradle configuration with the required message. Owner `signingReport`, `apksigner`, the external certificate, and Firebase all matched the public SHA-256; the enabled release APK verified. ASCII-path `:app:testDebugUnitTest`, `:app:lintDebug`, `flutter analyze`, and all 222 Flutter tests passed. Aggregate `./gradlew test` in the Korean-character worktree still runs third-party camera plugin Robolectric tests and fails 55/180 from its known path/Java environment; app-owned tests pass independently.
+
+### 2026-09-29 — AI review follow-up / fail-closed Android signing policy
+
+- Review/request: Prevent partial or invalid `key.properties` from silently falling back to debug signing, require the exact approved alias and a regular keystore file, sanitize malformed Base64 dart defines, and ensure every cloud-enabled Android artifact uses the registered identity.
+- TDD result: An isolated ASCII-clone configuration harness first showed all four expected sanitized failures absent on the committed implementation: partial properties, wrong alias, nonexistent store file, and malformed Base64. The enabled signing report also proved debug still used `AndroidDebugKey`. After the minimal Gradle change, the four cases fail with stable sanitized messages, while absent configuration retains ordinary evaluator debug behavior.
+- Signing result: When `ARTINUS_CLOUD_EVIDENCE=true`, Gradle `configureEach` assigns `registeredRelease` to debug, release, profile, and debugAndroidTest. Fresh enabled debug and release APKs both pass `apksigner` and match the sole Firebase SHA-256 entry. No remote Firebase or App Check mutation occurred; the SHA list was read only.
+- Verification/evidence: The patched ASCII clone built ordinary no-key debug, rejected enabled no-key debug and release before compilation, passed the four invalid-fixture checks, app-owned JVM tests, Android lint, Flutter analysis, the 5 focused bootstrap tests, and all 222 Flutter tests. The owner enabled debug/release builds passed and both certificate digests matched the dedicated keystore and Firebase.
+
+### 2026-09-29 — user decision / evaluator-convenience credential exception (option B)
+
+- Decision: The user selected option B: include the minimum assignment-only, revocable evaluation credentials in the repository so a reviewer can clone and run the cloud-first path without a separately delivered secret bundle. The README must identify this explicitly as a take-home build-convenience trade-off, not a production recommendation.
+- Accepted scope: the dedicated Android assignment keystore/signing properties and one registered iOS App Check debug token may be tracked. Android retains the registered Play Integrity identity; iOS uses the debug provider only in debug mode because the available Personal Team cannot use App Attest. Cloud-first recognition, two-attempt recovery, the 10/60-second bounds, and bundled local fallback remain unchanged.
+- Rejected scope: no Gemini Developer API key, service-account credential, Firebase CLI token, Apple account/session, `.p12`, provisioning profile, production signing asset, billing attachment, or former-employer asset may enter the repository. iOS release must not contain or activate the debug token.
+- Risk acceptance and recovery: Firebase's official guidance says App Check debug tokens should not be committed publicly. This exception knowingly prioritizes evaluator reproducibility for a dedicated Spark/no-billing project. The token and certificate identity are monitored and revoked after evaluation; deleting a later Git commit is not treated as secret removal.
+- Evidence state: this entry records the approved design decision only. Credential creation/registration, code guards, clean-clone cloud execution, release-token absence, physical-device behavior, and revocation remain unverified until implemented and tested.
+
+### 2026-09-29 — user + AI / evaluator cloud bundle and monitored live smoke
+
+- Request/prompt: Make the approved option-B checkout cloud-first without a
+  separate evaluator secret handoff, keep cloud OCR, use Android Play Integrity
+  for outside-Play evaluation, use an iOS debug provider only where the observed
+  Personal Team permits it, keep AI monitoring enabled for usage evidence, and
+  never expose technical error details to the user.
+- Remote result: The dedicated `artinus-ocr-bongjae-202609` project remained on
+  Spark. Android Play Integrity was registered with the sole assignment
+  certificate and outside-Play-compatible policy. One iOS evaluator debug token
+  was registered without printing it. Firebase AI Logic uses Gemini Developer
+  API with default App Check enforcement; Agent Platform, template-only, and
+  authenticated-user modes stayed disabled. AI monitoring was enabled at 100%
+  sampling by the user's explicit choice. No billing, client Gemini key,
+  service-account credential, database, Authentication, Storage, Analytics,
+  app-store resource, push, or submission action was added.
+- Credential disposition: The repository tracks only the approved dedicated
+  Android signing identity/properties and iOS debug token. iOS profile/release
+  fail closed. Expanded Android and iOS release outputs contained neither the
+  token value nor its source identifier. This is documented as a revocable
+  take-home convenience exception, not production credential practice.
+- Debugging evidence: The first iOS simulator run proved App Check token
+  acquisition but every AI request failed. Minimal text/schema/image probes
+  showed the failure was common to all request shapes. Inspection of pinned
+  `firebase_ai 3.10.0` showed the header is attached only when
+  `FirebaseAI.googleAI(appCheck: ...)` receives the active instance. A RED
+  regression first required that dependency to cross the gateway boundary; the
+  minimal implementation then passed focused and full tests.
+- Live result: A fresh ASCII clone at `899bf4c` passed the canonical production
+  bootstrap live smoke on an iOS 18.5 simulator with `gemini-3.8-flash` and a
+  generated non-sensitive fixture. Firebase console aggregate monitoring then
+  displayed request, success/failure, latency, and token metrics. Diagnostic
+  failures are included in those aggregates, so they are not presented as a
+  product success-rate claim; trace inputs/outputs were not opened or copied.
+- Verification/evidence: Pigeon regeneration remained clean; Flutter analysis
+  reported 0 issues; 227 Flutter tests and 2 fake full-flow tests passed;
+  Android debug/release, app tests/lint, and iOS debug/release no-codesign builds
+  passed; the Android release certificate matched the sole Firebase entry; and
+  release-token containment passed. A clean iOS clone needed the documented
+  debug no-codesign build before integration test to initialize mixed
+  SwiftPM/CocoaPods state.
+- Limits: No physical Android or iPhone was connected. Camera, local Korean OCR,
+  physical attestation, permission/lifecycle/orientation/flash, performance,
+  heat, 10-cycle, and platform-parity evidence remain blocked. The simulator
+  smoke is supplemental only.
+
+### 2026-09-29 — final code evidence / reproducible containment and remote quota block
+
+- Review correction: The initial App Check regression exercised only an
+  injected generation seam, and the release-token claim had no evaluator-run
+  command. The gateway now constructs its production `FirebaseAI` client
+  through a tested helper that receives the active `FirebaseAppCheck` instance.
+  A sanitized executable verifier and leak-fixture test now cover real release
+  outputs without printing the token.
+- Clean-clone result: Code evidence commit `7152334` passed byte-stable Pigeon
+  regeneration, Flutter analysis with 0 issues, 228 Flutter tests, 2 fake
+  integration tests, Android debug/release, Android app tests/lint, and iOS
+  debug/release no-codesign builds. The Android release certificate matched the
+  sole Firebase SHA-256; both release outputs passed token containment.
+- Live revalidation: The earlier canonical live success remains tied to
+  `899bf4c`. At `7152334`, two canonical requests failed at the sanitized
+  service boundary. A temporary disposable-clone diagnostic then reached the
+  SDK quota-exceeded branch. Firebase's official quota/error guidance says a
+  429 can represent exceeded project quota or exhausted model capacity. No
+  billing, quota-increase, or production-source diagnostic change was made.
+- Evidence policy: Do not relabel the earlier success as a `7152334` pass. Keep
+  remote quota/capacity and both physical-device matrices explicitly blocked;
+  the product-level two-attempt path still offers bundled on-device OCR.
+
+### 2026-09-29 — user + AI / simulator-first native evidence
+
+- Request/prompt: Run everything the simulator can credibly prove before
+  waiting for physical Android and iPhone hardware.
+- Result: An ASCII checkout at `30cb3d0` on iPhone 16 Pro/iOS 18.5 passed the
+  real Pigeon → Swift → Korean ML Kit integration for generated Korean/Latin,
+  multiline, rotated, and no-text fixtures. Detected fixtures preserved Korean
+  and Latin core tokens, and multiline retained its newline/token evidence. A
+  missing image mapped to sanitized
+  `invalidInput`; ten sequential native OCR calls passed. The deterministic
+  fake full-flow passed 2/2 and RunnerTests passed 9/9 on x86_64.
+- Debugging evidence: The Korean source path failed before native execution due
+  to the existing SwiftPM percent-encoding issue. Direct XCTest after Flutter
+  integration then read a deleted temporary test-listener path from generated
+  Xcode settings. `flutter build ios --simulator` restored
+  `FLUTTER_TARGET=lib/main.dart`, and the already-pinned x86_64 RunnerTests
+  command passed. No production workaround was introduced.
+- Limits: The simulator does not prove camera hardware, permission/settings
+  recovery, flash, physical App Check, device orientation, frame/memory/heat,
+  or platform parity. Ten native OCR calls are not ten capture cycles.
+
+### 2026-09-29 — user + AI / 429 diagnosis and bounded model failover
+
+- Request/prompt: Determine why the evaluator could receive 429 instead of
+  blindly keeping the same client request, then implement a policy that avoids
+  making one exhausted model the single point of failure.
+- Console evidence: Firebase AI Logic monitoring showed 11 iOS requests in the
+  observed 24-hour window: 4 successful requests plus `RESOURCE_EXHAUSTED` and
+  `INTERNAL` failures. The Firebase AI Logic gateway quota was 100 requests per
+  minute per project/user/region and showed no current saturation. The Gemini
+  API quota page for the same Spark project showed a 20-request free-tier daily
+  limit for `gemini-3.8-flash`, a seven-day peak above 90%, and a daily reset
+  immediately after the latest 429 interval. This makes daily model quota the
+  best-supported explanation for that latest 429; earlier same-minute 429s
+  followed by successes remain consistent with transient capacity/rate events.
+  The same console showed a 500-request model-specific daily limit for
+  `gemini-3.5-flash-lite`. These different model limits do not remove Firebase
+  AI Logic's shared gateway limits.
+- Decision/result: Attempt 1 remains `gemini-3.8-flash`. Only transport, 408,
+  429/quota, and 5xx failures wait 1,000–1,250ms and use
+  `gemini-3.5-flash-lite` for attempt 2. Configuration, unsupported location,
+  safety/recitation, invalid input, and malformed responses stop after one
+  cloud call. A transaction still has a two-call and cumulative 60-second cap;
+  two failures produce the existing natural local-OCR/recapture choice with no
+  vendor, model, exception, status, or error-code disclosure.
+- SDK constraint: `firebase_ai 3.10.0` converts quota-containing messages to
+  `QuotaExceeded`, but otherwise exposes some sub-500 server errors only as a
+  `ServerException.message` and drops response headers/status. The adapter
+  therefore normalizes underscore/space variants and recognizes only a narrow
+  prefix allowlist of official retryable tokens/messages, including the
+  documented `Resource exhausted` form. Unknown messages remain nonretryable.
+  This is a pinned-SDK compatibility exception, not a general string-parsing
+  policy; dependency upgrades must re-check and preferably remove it.
+- Rejected/modified: Repeating `gemini-3.8-flash` after its daily limit was
+  rejected because it cannot recover the evaluator flow. Automatically running
+  local OCR without consent was rejected because the approved UX offers a
+  choice after cloud exhaustion. Calling both models concurrently, making a
+  third cloud call, enabling billing, adding raw HTTP/Dio, and exposing 429 or
+  internal errors were also rejected. The initial claim that model quotas were
+  fully independent was corrected: only the observed model-specific daily
+  limits differ; shared gateway quotas still apply.
+- Verification/evidence: TDD first failed on the missing attempt contract and
+  on Firebase's official space-separated 429 message. Focused controller,
+  adapter, domain, and widget suites then passed; the full Flutter suite passed
+  240 tests and fake integration passed 2 tests. Android debug/release, Android
+  unit/lint, and ASCII-path iOS debug/release no-codesign builds passed. Release
+  token containment passed. On an iPhone 14 Pro Max iOS 18.3 simulator, the
+  production Firebase/App Check bootstrap made a live
+  `gemini-3.5-flash-lite` request with a generated non-sensitive fixture and
+  returned a nonblank result. This proves fallback model/config/schema
+  compatibility, not physical-device camera or attestation.
+- Sources: Firebase AI Logic
+  [error codes](https://firebase.google.com/docs/ai-logic/error-codes),
+  [quota model](https://firebase.google.com/docs/ai-logic/quotas), and
+  [supported models](https://firebase.google.com/docs/ai-logic/models);
+  Gemini API [troubleshooting](https://ai.google.dev/gemini-api/docs/troubleshooting)
+  and [Gemini 3.5 Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite).
+
+### 2026-09-29 — cloud failover final review and commit binding
+
+- Review correction: Independent review found that the first allowlist handled
+  `RESOURCE_EXHAUSTED` but missed Firebase's documented space-separated
+  `Resource exhausted, please try again later.` form. A RED regression using
+  the official-shaped message failed as predicted. The classifier now
+  normalizes underscore/space forms and requires an anchored retryable prefix
+  followed by an exact ending or narrow punctuation boundary. Similar unrelated
+  text remains nonretryable.
+- Final result: Commit `13fc11b` contains the two-model strategy, official 429
+  regression, nonretryable one-call matrix, 1,000–1,250ms bound, live-smoke
+  selector, and evaluator documentation. Full Flutter tests passed 244/244;
+  fake integration passed 2/2; ASCII-path analysis reported 0 issues; Android
+  debug/release and app unit/lint passed; iOS debug/release no-codesign passed;
+  release credential containment passed; and the source-equivalent final ASCII
+  copy repeated the live `gemini-3.5-flash-lite` smoke successfully.
+- Independent re-review: Critical 0, Important 0. HR/recruiter 93/100 and
+  hiring manager/development lead 92/100. Physical Android/iPhone camera,
+  attestation, flash, performance, and thermal gates remain blocked and are not
+  upgraded by simulator evidence.
+
+### 2026-09-30 — user + AI / simulator E2E and Play Store AVD
+
+- Request/prompt: Run every defensible E2E path on simulators/emulators, then
+  install an actually bootable Play Store AVD instead of treating simulator
+  limitations as app failures. Do not promote simulator results to real-device
+  evidence.
+- Defects found and corrected: Android's permission sheet temporarily sent the
+  app to `inactive`, causing the pending camera initialization to be disposed
+  and permission requests to loop. A RED lifecycle test reproduced it; the
+  screen now preserves only `CameraInitializing` across that transient state,
+  while hidden/paused still dispose. Target-specific Android integration builds
+  also exposed that locking every `io.flutter` engine ABI conflicts with
+  Flutter's selected target ABI; Gradle now ignores only `io.flutter:*` in the
+  lock while third-party versions remain locked. Simulator tests explicitly
+  begin resumed, and the cross-platform OCR fixture asserts the stable
+  `MULTILINE` token because Android ML Kit reads the leading generated `O` as
+  zero.
+- Android evidence: API 36 emulator UI exploration passed disclosure, initial
+  denial and settings recovery, preview/capture, rapid-tap single flight,
+  empty-result recapture, background/resume, and rotation. A newly installed
+  `AltinusPlayStore33` (Pixel 7, Android 13/API 33,
+  `google_apis_playstore/arm64-v8a`) booted with software rendering; ADB,
+  `sys.boot_completed=1`, and `com.android.vending` were verified. Native OCR
+  passed 3/3 and fake flow 2/2. Live cloud stopped before model dispatch because
+  Play Integrity returned App Check 403 for the sideloaded debug build. An API
+  30 Play Store AVD reproduced the more specific outdated-Play-Store `-14`
+  condition; API 36.1 remained ADB-offline on this host.
+- iOS evidence: iPhone 14 Pro Max iOS 18.3 simulator passed native OCR 3/3,
+  fake flow 2/2, RunnerTests 9/9, and both primary/fallback live cloud smokes.
+  The current ASCII copy passed device debug and simulator builds after the
+  documented one-time native dependency bootstrap.
+- Verification: ASCII-path `flutter analyze` reported 0 issues and all 245
+  Flutter tests passed. Focused lifecycle tests passed 8/8; framework fake flow
+  passed 2/2; Android debug build plus 422-task unit/lint passed. The Korean
+  source path still reproduces Flutter 3.47 analyzer LSP framing failure, so it
+  is recorded as a tool/path issue rather than a code failure. Physical camera,
+  Play Integrity, flash, performance, heat, and cross-device parity remain open.
+- Sources: Gradle dependency-locking ignored dependency patterns
+  (<https://docs.gradle.org/current/userguide/dependency_locking.html>) and
+  Google ARTEMIS (<https://github.com/google/artemis>). ARTEMIS was not needed
+  for the deterministic run; ADB/UIAutomator exploration supplied the bounded
+  emulator evidence.
+
+### 2026-09-30 — user + AI / initialization-time lifecycle reconciliation
+
+- Request/prompt: Recheck whether the proposed deferred-inactive camera fix is
+  actually appropriate before implementation, then proceed with the validated
+  option.
+- Evidence reviewed: Flutter's official lifecycle definition; the exact locked
+  `camera 0.12.1`, Android CameraX `0.7.5`, and iOS AVFoundation `0.10.3+1`
+  permission/initialization paths; the repository controller, adapter, and
+  lifecycle tests.
+- Decision/result: modified. A widget-owned resume-only flag was rejected as
+  incomplete because initialization can finish while the app remains inactive
+  and an async resume can be superseded. The approved A+ design moves lifecycle
+  phase and generation ownership into `OcrFlowController`: transient inactive
+  lets a permission result settle, a granted session completed while inactive
+  is released, background forces teardown, and resume reopens only while its
+  generation remains current. No permission dependency or native bridge is
+  added.
+- Verification boundary: design only. Existing lifecycle tests passed 8/8 but
+  do not cover the newly identified races. Implementation requires the RED
+  cases listed in
+  `docs/superpowers/specs/2026-09-30-camera-lifecycle-reconciliation-design.md`;
+  physical Android/iPhone behavior remains unclaimed.
+
+### 2026-09-30 — user + AI / lifecycle reconciliation implementation
+
+- Request/prompt: Proceed inline with the approved A+ lifecycle design, keep
+  planning and execution evidence explicit, and do not claim simulator or
+  widget coverage as physical-device proof.
+- RED evidence: transient `inactive -> resumed` disposed a pending
+  initialization (`expected 0, actual 1`); a grant completed while inactive
+  retained the session (`expected dispose 1, actual 0`); the background test
+  failed to compile because `onBackgrounded` did not exist; a stale resume
+  reopened the camera after a newer inactive transition (`expected initialize
+  1, actual 2`); and the widget parking regression observed no teardown
+  (`expected 1, actual 0`). Three older controller tests were corrected to
+  enter `resumed` before directly invoking foreground-only actions; their
+  token/disposal assertions were preserved.
+- Decision/result: executable commit `1353fc9` makes `OcrScreen` a lifecycle
+  translator and centralizes phase, generation, pending-initialization, and
+  teardown ownership in `OcrFlowController`. Transient inactive can reuse the
+  same pending permission request; a granted session that completes while
+  inactive is parked; hidden/paused/detached force release; and a resume
+  continuation cannot initialize after a newer lifecycle generation. Permission
+  denial keeps the existing recovery path and never auto-retries.
+- Verification/evidence: a source-equivalent ASCII copy at
+  `/private/tmp/altinus-lifecycle.yQUEX2` passed `flutter analyze` with 0
+  issues, lifecycle widget tests 11/11, controller tests 85/85, all Flutter
+  tests 252/252, Android debug build, iOS debug device no-codesign build, iOS
+  simulator debug build, and the context-budget check. The first
+  empty-directory analysis attempt was detected and excluded before evidence
+  was recorded. The clean-copy simulator build initially reproduced the
+  documented `Pods_Runner` bootstrap-order failure; the documented device
+  no-codesign bootstrap then passed, and the simulator retry passed.
+  `git diff --check` passed on the executable range. Physical Android/iPhone camera,
+  permission-sheet timing, flash, App Check, performance, heat, and parity
+  remain open final gates.
