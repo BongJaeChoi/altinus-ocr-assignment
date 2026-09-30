@@ -1142,3 +1142,10 @@ flowchart LR
 - Request: remove the internal public-visibility/authorization/email-status paragraph and make the writing sound natural for the assignment recipient.
 - Adopted: rewrite README around execution, architecture, tradeoffs, test/device results and concise required AI-use examples. Remove internal user/session/approval language; preserve the original requirement to disclose AI assistance, exact observed metrics, credential setup and hardware limitations. No runtime change.
 - Verification: requested paragraph and internal wording absent; local links resolve; retained 10-cycle/3,788-frame/p95 values match committed JSON. AI adoption/modification/rejection examples remain. Context budgets and diff hygiene pass. User-requested submission artifact supports the documentation-only commit.
+
+
+### 2026-09-30 23:29 KST — user + AI / six-item README completeness check
+
+- Request: verify all six assignment README items, keeping the explanation concise without losing required content.
+- Adopted: make Flutter/library/architecture reasons explicit; condense tradeoffs into five points; label AI output use, direct revision/verification and rejected proposals separately. Preserve test/device results and hardware limits. Unchanged AI output is qualified as no recorded item, not an assertion that every generated line was manually rewritten.
+- Verification: all six items present by direct review and section/term checks; relative links resolve; context budgets and diff hygiene pass. No production/test changes and no fresh native or cloud run. Documentation-only user-requested submission refinement.
