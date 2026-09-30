@@ -92,6 +92,10 @@ Re-check environment/device facts immediately before implementation and E2E; the
   routes an owned capture directly to local OCR before Firebase initialization,
   cloud image preparation, timers, or dispatch.
 - Use manual Riverpod `NotifierProvider`; do not use code generation.
+- Keep Flutter lifecycle translation in `OcrScreen`, but keep camera lifecycle
+  policy in `OcrFlowController`: transient inactive may settle a pending
+  permission/initialization, a granted inactive session is released, true
+  background forces teardown, and stale resume generations cannot reopen it.
 - Give the user a 10-second choice, with a cumulative 60-second cloud budget and at most two cloud attempts. Attempt 1 uses `gemini-3.8-flash`; only documented transient failures wait 1,000–1,250ms and use `gemini-3.5-flash-lite` for attempt 2. Both cloud failures lead to the existing local-OCR/recapture choice.
 - Pinned `firebase_ai 3.10.0` hides structured status/header data for some 408/429 responses. Retry classification therefore has one narrow adapter exception for official status tokens/messages; unknown messages remain nonretryable, UI copy never includes them, and a dependency upgrade must revalidate or remove this exception.
 - The repository intentionally tracks a dedicated revocable Android assignment
@@ -110,6 +114,11 @@ Re-check environment/device facts immediately before implementation and E2E; the
 
 ## Latest observed evidence
 
+- Executable commit `1353fc9`, 2026-09-30 KST, passed source-equivalent
+  ASCII-path `flutter analyze` with 0 issues, lifecycle widget tests 11/11,
+  controller tests 85/85, all 252 Flutter tests, context budgets, and diff
+  hygiene. These automated races cover lifecycle ownership but do not prove
+  physical Android/iPhone permission timing or camera behavior.
 - On 2026-09-30, source based on `9b0bb1b` plus the E2E correction diff passed
   ASCII-path analysis with 0 issues, all 245 Flutter tests, Android/iOS native
   OCR integration (3/3 each), Android/iOS fake flow (2/2 each), Android debug

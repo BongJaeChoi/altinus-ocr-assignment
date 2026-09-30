@@ -790,3 +790,33 @@ flowchart LR
   cases listed in
   `docs/superpowers/specs/2026-09-30-camera-lifecycle-reconciliation-design.md`;
   physical Android/iPhone behavior remains unclaimed.
+
+### 2026-09-30 — user + AI / lifecycle reconciliation implementation
+
+- Request/prompt: Proceed inline with the approved A+ lifecycle design, keep
+  planning and execution evidence explicit, and do not claim simulator or
+  widget coverage as physical-device proof.
+- RED evidence: transient `inactive -> resumed` disposed a pending
+  initialization (`expected 0, actual 1`); a grant completed while inactive
+  retained the session (`expected dispose 1, actual 0`); the background test
+  failed to compile because `onBackgrounded` did not exist; a stale resume
+  reopened the camera after a newer inactive transition (`expected initialize
+  1, actual 2`); and the widget parking regression observed no teardown
+  (`expected 1, actual 0`). Three older controller tests were corrected to
+  enter `resumed` before directly invoking foreground-only actions; their
+  token/disposal assertions were preserved.
+- Decision/result: executable commit `1353fc9` makes `OcrScreen` a lifecycle
+  translator and centralizes phase, generation, pending-initialization, and
+  teardown ownership in `OcrFlowController`. Transient inactive can reuse the
+  same pending permission request; a granted session that completes while
+  inactive is parked; hidden/paused/detached force release; and a resume
+  continuation cannot initialize after a newer lifecycle generation. Permission
+  denial keeps the existing recovery path and never auto-retries.
+- Verification/evidence: a source-equivalent ASCII copy at
+  `/private/tmp/altinus-lifecycle.yQUEX2` passed `flutter analyze` with 0
+  issues, lifecycle widget tests 11/11, controller tests 85/85, all Flutter
+  tests 252/252, and the context-budget check. The first empty-directory
+  analysis attempt was detected and excluded before evidence was recorded.
+  `git diff --check` passed on the executable range. Physical Android/iPhone
+  camera, permission-sheet timing, flash, App Check, performance, heat, and
+  parity remain open final gates.
