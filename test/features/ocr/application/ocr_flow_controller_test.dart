@@ -237,6 +237,8 @@ void main() {
         expect(harness.camera.disposeCount, 1);
 
         harness.camera.disposeError = null;
+        unawaited(harness.controller.onResumed());
+        async.flushMicrotasks();
         unawaited(harness.controller.recapture());
         async.flushMicrotasks();
 
@@ -408,6 +410,8 @@ void main() {
 
         unawaited(harness.controller.onInactive());
         async.flushMicrotasks();
+        unawaited(harness.controller.onResumed());
+        async.flushMicrotasks();
         unawaited(harness.controller.start());
         async.flushMicrotasks();
         expect(harness.files.cleanupOrphansCount, 2);
@@ -501,6 +505,8 @@ void main() {
         async.flushMicrotasks();
 
         unawaited(harness.controller.onInactive());
+        async.flushMicrotasks();
+        unawaited(harness.controller.onResumed());
         async.flushMicrotasks();
         unawaited(harness.controller.acceptDisclosure());
         async.flushMicrotasks();
@@ -1030,6 +1036,37 @@ void main() {
         });
       },
     );
+
+    test('granted initialization completed while inactive is parked', () {
+      fakeAsync((async) {
+        final harness = _Harness(async);
+        harness.camera
+          ..holdInitialize = true
+          ..holdDispose = true;
+        unawaited(harness.controller.start());
+        async.flushMicrotasks();
+
+        unawaited(harness.controller.onInactive());
+        async.flushMicrotasks();
+        expect(harness.camera.disposeCount, 0);
+
+        harness.camera.completeInitialize(0);
+        async.flushMicrotasks();
+        expect(harness.camera.disposeCount, 1);
+        expect(harness.state, isA<CameraInitializing>());
+
+        harness.camera.completeDispose(0);
+        harness.camera.holdInitialize = false;
+        async.flushMicrotasks();
+        unawaited(harness.controller.onResumed());
+        async.flushMicrotasks();
+
+        expect(harness.camera.initializeCount, 2);
+        expect(harness.camera.maxConcurrentInitializationCount, 1);
+        expect(harness.state, isA<PreviewReady>());
+        harness.dispose(async);
+      });
+    });
 
     test('inactive settles a newer never-completing capture marker', () {
       fakeAsync((async) {

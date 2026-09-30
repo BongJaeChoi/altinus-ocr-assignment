@@ -454,7 +454,11 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
       await start();
       return;
     }
-    if (!_needsPreviewOnResume || !_flowNeedsPreview(state)) {
+    if (!_needsPreviewOnResume) {
+      return;
+    }
+    if (!_flowNeedsPreview(state)) {
+      _needsPreviewOnResume = false;
       return;
     }
     _needsPreviewOnResume = false;
@@ -485,6 +489,9 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
         return;
       }
       if (permission == CameraPermissionState.granted) {
+        if (await _parkInitializedCameraIfInactive(operationId)) {
+          return;
+        }
         var flashSupported = false;
         try {
           flashSupported = await _camera.supportsFlash();
@@ -492,6 +499,9 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
           flashSupported = false;
         }
         if (!_ownsCameraOperation(operationId)) {
+          return;
+        }
+        if (await _parkInitializedCameraIfInactive(operationId)) {
           return;
         }
         _cameraReady = true;
@@ -502,6 +512,8 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
           flashMode: CameraFlashMode.auto,
         );
       } else {
+        _initializationDeferredByInactive = false;
+        _needsPreviewOnResume = false;
         _cameraReady = false;
         state = PermissionDenied(permission);
       }
@@ -515,6 +527,27 @@ final class OcrFlowController extends Notifier<OcrFlowState> {
         _initializingCameraOperationId = null;
       }
     }
+  }
+
+  Future<bool> _parkInitializedCameraIfInactive(int operationId) async {
+    if (_cameraLifecyclePhase == _CameraLifecyclePhase.active) {
+      return false;
+    }
+    _initializationDeferredByInactive = false;
+    _needsPreviewOnResume = true;
+    _cameraReady = false;
+    try {
+      await _ensureCameraDisposed();
+    } catch (error) {
+      if (_ownsCameraOperation(operationId)) {
+        state = RecoverableError(failure: _domainFailure(error));
+      }
+      return true;
+    }
+    if (_ownsCameraOperation(operationId)) {
+      _cameraNeedsDispose = false;
+    }
+    return true;
   }
 
   Future<void> _ensureCameraDisposed() {
