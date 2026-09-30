@@ -767,3 +767,26 @@ flowchart LR
   Google ARTEMIS (<https://github.com/google/artemis>). ARTEMIS was not needed
   for the deterministic run; ADB/UIAutomator exploration supplied the bounded
   emulator evidence.
+
+### 2026-09-30 — user + AI / initialization-time lifecycle reconciliation
+
+- Request/prompt: Recheck whether the proposed deferred-inactive camera fix is
+  actually appropriate before implementation, then proceed with the validated
+  option.
+- Evidence reviewed: Flutter's official lifecycle definition; the exact locked
+  `camera 0.12.1`, Android CameraX `0.7.5`, and iOS AVFoundation `0.10.3+1`
+  permission/initialization paths; the repository controller, adapter, and
+  lifecycle tests.
+- Decision/result: modified. A widget-owned resume-only flag was rejected as
+  incomplete because initialization can finish while the app remains inactive
+  and an async resume can be superseded. The approved A+ design moves lifecycle
+  phase and generation ownership into `OcrFlowController`: transient inactive
+  lets a permission result settle, a granted session completed while inactive
+  is released, background forces teardown, and resume reopens only while its
+  generation remains current. No permission dependency or native bridge is
+  added.
+- Verification boundary: design only. Existing lifecycle tests passed 8/8 but
+  do not cover the newly identified races. Implementation requires the RED
+  cases listed in
+  `docs/superpowers/specs/2026-09-30-camera-lifecycle-reconciliation-design.md`;
+  physical Android/iPhone behavior remains unclaimed.
