@@ -815,8 +815,12 @@ flowchart LR
 - Verification/evidence: a source-equivalent ASCII copy at
   `/private/tmp/altinus-lifecycle.yQUEX2` passed `flutter analyze` with 0
   issues, lifecycle widget tests 11/11, controller tests 85/85, all Flutter
-  tests 252/252, and the context-budget check. The first empty-directory
-  analysis attempt was detected and excluded before evidence was recorded.
-  `git diff --check` passed on the executable range. Physical Android/iPhone
-  camera, permission-sheet timing, flash, App Check, performance, heat, and
-  parity remain open final gates.
+  tests 252/252, Android debug build, iOS debug device no-codesign build, iOS
+  simulator debug build, and the context-budget check. The first
+  empty-directory analysis attempt was detected and excluded before evidence
+  was recorded. The clean-copy simulator build initially reproduced the
+  documented `Pods_Runner` bootstrap-order failure; the documented device
+  no-codesign bootstrap then passed, and the simulator retry passed.
+  `git diff --check` passed on the executable range. Physical Android/iPhone camera,
+  permission-sheet timing, flash, App Check, performance, heat, and parity
+  remain open final gates.

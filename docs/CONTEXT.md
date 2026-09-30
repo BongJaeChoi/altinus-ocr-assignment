@@ -117,8 +117,11 @@ Re-check environment/device facts immediately before implementation and E2E; the
 - Executable commit `1353fc9`, 2026-09-30 KST, passed source-equivalent
   ASCII-path `flutter analyze` with 0 issues, lifecycle widget tests 11/11,
   controller tests 85/85, all 252 Flutter tests, context budgets, and diff
-  hygiene. These automated races cover lifecycle ownership but do not prove
-  physical Android/iPhone permission timing or camera behavior.
+  hygiene, plus Android debug, iOS device debug no-codesign, and iOS simulator
+  debug builds. The clean-copy iOS simulator build required the documented
+  device no-codesign dependency bootstrap first. These automated races and
+  builds cover lifecycle ownership/compilation but do not prove physical
+  Android/iPhone permission timing or camera behavior.
 - On 2026-09-30, source based on `9b0bb1b` plus the E2E correction diff passed
   ASCII-path analysis with 0 issues, all 245 Flutter tests, Android/iOS native
   OCR integration (3/3 each), Android/iOS fake flow (2/2 each), Android debug
