@@ -1,0 +1,67 @@
+{
+  "build": {
+    "samples": 3788,
+    "p50_ms": 0.469,
+    "p95_ms": 1.853,
+    "max_ms": 12.615,
+    "over_16_667_ms": 0,
+    "over_8_333_ms": 2
+  },
+  "raster": {
+    "samples": 3788,
+    "p50_ms": 2.752,
+    "p95_ms": 4.134,
+    "max_ms": 10.199,
+    "over_16_667_ms": 0,
+    "over_8_333_ms": 4
+  },
+  "elapsed": {
+    "samples": 3788,
+    "p50_ms": 4.505,
+    "p95_ms": 6.994,
+    "max_ms": 72.471,
+    "over_16_667_ms": 2,
+    "over_8_333_ms": 71
+  },
+  "before": {
+    "battery_temperature_c": 38.1,
+    "usb_powered": true,
+    "thermal_status": 0,
+    "pss_kib": 279174,
+    "ap_temperature_c": 42.7
+  },
+  "after": {
+    "battery_temperature_c": 39.0,
+    "usb_powered": true,
+    "thermal_status": 0,
+    "pss_kib": 303489,
+    "ap_temperature_c": 43.7
+  },
+  "cycle_memory_pss_kib": [
+    302536,
+    279508,
+    321251,
+    318136,
+    315592,
+    328971,
+    332631,
+    322885,
+    309388,
+    298462
+  ],
+  "refresh": {
+    "observed_render_hz": 60.000004
+  },
+  "device": "Samsung SM-S911N",
+  "os": "Android 16 / API 36",
+  "source_commit": "d81d731eff2618638807e25ba355d0eeb5a51945",
+  "controller_sha256": "6d35c323782fb39d19eba2f30f4f936e57dc3b1bcbbaf570670ed5306056cc72",
+  "mode": "profile; ARTINUS_CLOUD_EVIDENCE=false; APK re-signed with existing evaluator certificate",
+  "method": "VM Extension stream Flutter.Frame; warmed 10 physical capture/recognition/recapture cycles, sampled preview and scroll frames; dumpsys meminfo/battery/thermalservice before and after",
+  "limits": [
+    "One short, warmed device run; USB charging was active.",
+    "Display render rate observed once at 60 Hz, not locked.",
+    "Poll-observed durations include ADB/UI-dump overhead and are not OCR latency.",
+    "No long-term leak, thermal-stress, or cross-platform performance claim."
+  ]
+}

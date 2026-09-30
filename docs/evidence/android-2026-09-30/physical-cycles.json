@@ -1,0 +1,102 @@
+[
+  {
+    "cycle": 1,
+    "result": true,
+    "korean_core": true,
+    "latin_present": true,
+    "poll_observed_seconds": 3.014,
+    "pss_kib": 302536,
+    "rss_kib": 426488,
+    "rapid_taps": 3
+  },
+  {
+    "cycle": 2,
+    "result": true,
+    "korean_core": true,
+    "latin_present": true,
+    "poll_observed_seconds": 3.019,
+    "pss_kib": 279508,
+    "rss_kib": 403484,
+    "rapid_taps": 1
+  },
+  {
+    "cycle": 3,
+    "result": true,
+    "korean_core": true,
+    "latin_present": true,
+    "poll_observed_seconds": 2.99,
+    "pss_kib": 321251,
+    "rss_kib": 445116,
+    "rapid_taps": 1
+  },
+  {
+    "cycle": 4,
+    "result": true,
+    "korean_core": true,
+    "latin_present": true,
+    "poll_observed_seconds": 3.018,
+    "pss_kib": 318136,
+    "rss_kib": 441968,
+    "rapid_taps": 1
+  },
+  {
+    "cycle": 5,
+    "result": true,
+    "korean_core": true,
+    "latin_present": true,
+    "poll_observed_seconds": 2.987,
+    "pss_kib": 315592,
+    "rss_kib": 439464,
+    "rapid_taps": 1
+  },
+  {
+    "cycle": 6,
+    "result": true,
+    "korean_core": true,
+    "latin_present": true,
+    "poll_observed_seconds": 3.05,
+    "pss_kib": 328971,
+    "rss_kib": 452864,
+    "rapid_taps": 1
+  },
+  {
+    "cycle": 7,
+    "result": true,
+    "korean_core": true,
+    "latin_present": true,
+    "poll_observed_seconds": 3.064,
+    "pss_kib": 332631,
+    "rss_kib": 456528,
+    "rapid_taps": 1
+  },
+  {
+    "cycle": 8,
+    "result": true,
+    "korean_core": true,
+    "latin_present": true,
+    "poll_observed_seconds": 3.0,
+    "pss_kib": 322885,
+    "rss_kib": 446804,
+    "rapid_taps": 1
+  },
+  {
+    "cycle": 9,
+    "result": true,
+    "korean_core": true,
+    "latin_present": true,
+    "poll_observed_seconds": 3.05,
+    "pss_kib": 309388,
+    "rss_kib": 433324,
+    "rapid_taps": 1
+  },
+  {
+    "cycle": 10,
+    "result": true,
+    "korean_core": true,
+    "latin_present": true,
+    "poll_observed_seconds": 3.018,
+    "pss_kib": 298462,
+    "rss_kib": 422400,
+    "rapid_taps": 1
+  }
+]
