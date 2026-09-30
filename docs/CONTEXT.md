@@ -74,9 +74,10 @@ Empty text is a valid OCR outcome and must not be mislabeled as an engine crash.
 
 - Flutter `3.47.5` stable and Dart `3.13.4` are the committed implementation versions.
 - Xcode `26.1.1`, CocoaPods `1.16.2`, Java 17, and Android SDKs are available.
-- Final evaluator-cloud verification found no connected physical Android or
-  iPhone. An iOS 18.5 iPhone 16 Pro simulator was available only as
-  supplemental cloud evidence.
+- Earlier evaluator-cloud verification had no physical devices. On
+  2026-09-30 a Samsung SM-S911N (Android 16/API 36) was used for local-only
+  preview/control observation; the 22:03 checkpoint still had no connected
+  physical iPhone. Simulator evidence remains supplemental.
 - Flutter is the committed implementation stack.
 
 Re-check environment/device facts immediately before implementation and E2E; they are time-sensitive.
@@ -113,6 +114,19 @@ Re-check environment/device facts immediately before implementation and E2E; the
 - Require clean-clone, fixed-input, cloud/local, Pigeon, frame-time, memory, and heat evidence.
 
 ## Latest observed evidence
+
+- Executable commit `1d83b68`, recorded 2026-09-30 22:03 KST: ASCII-only
+  source export passed `flutter pub get`, `flutter analyze` with 0 issues,
+  all 255 Flutter tests, context budgets, and diff hygiene. No native build
+  or device matrix was rerun for that upload checkpoint.
+- Samsung SM-S911N, Android 16/API 36: local-only debug APK preview fits its
+  aspect ratio and flash/capture controls remain visible without scrolling.
+  The lower overlay covers part of the preview. A local screenshot was
+  inspected but not committed; this is partial physical UI evidence only.
+- On 2026-09-30 22:27 KST, `git ls-remote origin refs/heads/main` confirmed
+  remote `main` at `a2a6254`. The repository was created private according to
+  the checkpoint log; evaluator access remains unverified. No employer
+  submission or email is recorded.
 
 - Executable commit `1353fc9`, 2026-09-30 KST, passed source-equivalent
   ASCII-path `flutter analyze` with 0 issues, lifecycle widget tests 11/11,
@@ -161,8 +175,10 @@ Re-check environment/device facts immediately before implementation and E2E; the
   The same run sanitized a missing image and completed ten
   sequential native OCR requests. The two fake full-flow tests and 9/9
   RunnerTests also passed. This does not promote any physical-device gate.
-- Physical Android/iPhone camera, App Check, local OCR, lifecycle, performance,
-  heat, flash, and platform parity remain blocked until hardware is connected.
+- Android physical preview/control placement has partial evidence only.
+  Android App Check, full OCR/lifecycle, performance, heat, and flash gates
+  remain unverified; iPhone physical verification and platform parity remain
+  blocked without a connected iPhone and separate run evidence.
 
 ## Done evidence ledger
 

@@ -882,3 +882,77 @@ flowchart LR
   `xcrun xctrace list devices` sees no connected physical iPhone. No new native
   build or camera/OCR device run was performed for this source-unmodified
   upload. Remaining real-device matrix gates are not promoted to complete.
+
+
+### 2026-09-30 22:27 KST — user + AI / submission documentation reconciliation
+
+- Request/prompt: The user asked to reflect the latest test count, Samsung
+  physical preview/control observation, GitHub checkpoint, and remaining
+  iPhone/performance gates in the prepared documents ("반영해줘").
+- Conflict recorded: README still reported 245 tests, no physical Android,
+  and no push; CONTEXT/PRD also retained the earlier no-hardware status.
+  The dated implementation/checkpoint evidence records 255 tests and partial
+  Samsung UI observation. Fresh read-only remote evidence confirms upload.
+- Decision/outcome: Adopted. Updated README.md, docs/CONTEXT.md, and
+  docs/PRD.md as the user-requested submission/handoff artifact. Kept older
+  native build/integration runs distinct from the latest source verification;
+  no physical OCR accuracy, flash actuation, performance, heat, or iPhone
+  result was added. The AI log history is preserved and this entry appended.
+- Fresh verification: `git ls-remote origin refs/heads/main` returned
+  `a2a6254780954655c6856914e2df0a351da0504a`; the prior GitHub checkpoint is
+  uploaded. `bash scripts/check_context_budget.sh` passed (AGENTS.md 5766
+  bytes; docs/PRD.md 5239 bytes). `git diff --check` passed. Local Markdown
+  links in the changed documents were checked for existing targets.
+- Verification boundary: Documentation only; production and tests unchanged.
+  Flutter analysis/tests and the Android/iOS runtime matrix were not rerun
+  for this edit. The 255-test result remains the recorded 22:03 checkpoint
+  evidence, not a new test run. This documentation update is local and
+  uncommitted; no new push, submission, or external write was performed.
+
+
+### 2026-09-30 22:33 KST — user + AI / README assignment-constraint correction
+
+- Request/prompt: "제약사항을 리드미가 잘 지키지 못하고 있어. 확인 후 수정해줘"
+- Source/conflict: Read the pinned assignment README at
+  `cb7c0d5323e9c0f347253cf52c09594e18342ced` through its raw GitHub URL.
+  Its constraints request a brief README covering six categories. The local
+  README was 170 lines / 16810 bytes, mixed detailed delivery history with
+  evaluator instructions, omitted the AI tool name, and listed rejected
+  suggestions without clear reasons. The assignment allows cloud OCR;
+  changing to on-device-only is not required by this constraint.
+- Decision/outcome: Adopted. Reworked README.md around run instructions,
+  framework/library/architecture reasons, trade-offs/limits, test methods
+  and named devices, Codex scope, AI output handling, and concrete corrected
+  or rejected decisions with reasons. Linked existing evidence documents
+  instead of adding new documentation. Retained credential/monitoring and
+  iOS profile/release constraints next to execution/limitations. Removed
+  transient GitHub delivery bookkeeping from the evaluator-facing README.
+- Evidence: Compared pubspec.yaml, image_preparer.dart,
+  pigeon_local_ocr_service.dart, the approved design, and dated AI log runs.
+  Preserved 255 tests as historical checkpoint evidence and retained partial
+  Samsung / unverified iPhone and performance status. Local link targets and
+  the CONTEXT evidence anchor were checked; context budget and diff hygiene
+  checks passed after this edit.
+- Verification boundary: Documentation only. No production code, dependencies,
+  tests, credentials, or remote state changed; Flutter tests, analysis, native
+  builds, and device matrix were not rerun for this editorial correction.
+
+
+### 2026-09-30 22:41 KST — user + AI / authorized local merge and workspace cleanup
+
+- Request/prompt: "오케이 머지하고 워크트리 및 브랜치 정리"
+- Decision/outcome: Adopted. Commit the user-requested README/submission
+  documentation reconciliation and fast-forward local main. Preserve main's
+  existing code/test/Xcode changes and appended audit log. Remove the merged
+  document-preparation worktree/branch and clean detached iOS verification
+  worktree after merge verification. Keep the dirty local-OCR worktree/branch
+  and dirty older verification worktree so their changes are not discarded.
+- Fresh verification: A source-equivalent ASCII export with the four document
+  edits passed `flutter pub get`, `flutter analyze` (0 issues), and
+  `flutter test --reporter compact` (255 tests). Context-budget, local README
+  link/anchor, and diff-hygiene checks pass. No runtime behavior changed and
+  the Android/iOS native matrix was not rerun.
+- Commit scope: README.md, docs/CONTEXT.md, docs/PRD.md, and this append-only
+  log only. This is the requested submission/handoff artifact and qualifies
+  for the documented docs-only commit exception with a specific reason.
+- Boundary: Local merge/cleanup only; no new push or employer submission.

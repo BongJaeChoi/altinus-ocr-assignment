@@ -92,7 +92,7 @@ Submission context from the document-pass email: GitHub repository URL due by `2
 
 ## 8. Highest risks
 
-- No currently connected real Android or iOS device; real-device acceptance remains blocked until hardware is available.
+- Android Samsung SM-S911N has partial real-device preview/control evidence; the complete Android matrix is unverified, and iPhone real-device acceptance remains blocked without hardware.
 - Camera/OCR plugins may differ by OS version, architecture, lifecycle, and permission behavior.
 - OCR latency and image memory pressure can cause jank or termination if processing is not bounded.
 - Simulator/emulator and mocked tests can hide real camera orientation, permission, and resource-lifecycle defects.
