@@ -43,9 +43,9 @@ choices, so their checks supplement those requirements.
 | iOS/Android parity | Android results are recorded here. Separate simulator handoff exists. | Physical iPhone preview, permission, flash, performance and parity remain unverified. |
 
 The physical Android core flow and several recovery scenarios have evidence.
-README lines 39 and 56 still describe the earlier partial Android checkpoint,
-including unverified frame time, memory, heat and flash. They have not yet been
-updated with this record; README edits remain with the other session.
+At the initial handoff, README still described the earlier partial Android
+checkpoint, including unverified frame time, memory, heat and flash. The user
+subsequently authorized this session to update README from this record.
 The complete repository E2E matrix is not all passed: physical engine-failure
 injection, exact native-OCR lifecycle interruption, network-disconnected operation
 and camera-unavailable hardware remain unobserved. Automated tests supplement

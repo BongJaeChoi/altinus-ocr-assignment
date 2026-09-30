@@ -36,7 +36,7 @@ flutter run -d <device-id> --dart-define=ARTINUS_CLOUD_EVIDENCE=false
 - **나쁜 입력·오류:** 읽을 문자 없음과 OCR 실패를 구분하고 재촬영·기기 인식을 제공합니다. 클라우드 입력은 크기·픽셀 수를 제한하고 방향을 보정합니다. 블러·저조도·15도 기울임 생성 fixture와 손상 파일로 native 결과/오류 경계를 검사하며, 이를 자동 복원하거나 인식 정확도를 보장하지 않습니다. 권한 거부·카메라 오류는 재시도 또는 설정 안내로 복구합니다.
 - **임시 파일·개인정보:** 갤러리와 OCR 이력에 저장하지 않으며, 재촬영·dispose 시 소유 파일을 정리합니다. 비정상 종료 시 카메라 임시 파일은 남을 수 있습니다. Firebase AI monitoring은 100% sampling이며 입력·출력이 수집될 수 있으므로 민감한 사진은 테스트에 사용하지 마세요.
 - **플랫폼 차이:** Android는 Play Integrity, iOS debug는 등록된 App Check debug provider를 사용합니다. iOS profile/release는 debug token을 사용하지 않으며 클라우드 평가 실행에 별도 production App Check 구성이 필요합니다. 기존 release 산출물에서 debug token 부재를 확인했으며, 평가 종료 후 평가용 token·인증서 등록을 폐기할 계획입니다.
-- **실기기 검증:** Samsung에서 프리뷰 비율과 버튼 배치를 확인했지만 하단 버튼 overlay가 프리뷰 일부를 덮습니다. iPhone 실기기, 전체 기능 패리티, frame time·메모리·발열·flash 점등은 검증하지 못했습니다.
+- **실기기 검증:** Samsung SM-S911N에서 실제 촬영·기기 OCR·재촬영 10회와 권한 복구·빈 입력·저조도 처리를 확인했습니다. 완전히 어두운 환경의 자동 flash 점등은 사용자가 확인했습니다. 프리뷰 하단 버튼 overlay는 화면 일부를 덮습니다. 짧은 local-only profile 실행의 frame time·메모리·온도는 측정했으나 장시간 안정성은 보장하지 않습니다. iPhone 실기기와 전체 기능 패리티는 미검증입니다. [Android 검증 기록](docs/ANDROID_VERIFICATION_2026-09-30.md)에 측정 방법과 남은 항목을 구분했습니다.
 
 ## 테스트 방법과 검증 기기
 
@@ -53,10 +53,14 @@ flutter test -d flutter-tester integration_test/fake_flow_test.dart
 | 2026-09-30 최종 iOS 검증용 영문 경로 스냅샷 | 공통 OCR 최종 소스 스냅샷 기준 `flutter analyze` 0 issues, Flutter 테스트 **262개**, host fake flow **2개** 통과. 정확한 소스·명령은 [최종 검증 기록](docs/FINAL_VERIFICATION_2026-09-30.md)에 있습니다. |
 | Android API 33 Play Store / API 36 emulator, 이전 커밋 실행 | API 33은 native OCR·fake flow 통과, cloud는 App Check 403으로 차단됐습니다. API 36은 권한·재촬영·background/resume·회전 등을 확인했습니다. 물리 카메라 증거는 아닙니다. |
 | iPhone 16 Pro / iOS 18.5 simulator, 최종 보완 | native 입력 smoke **4개**, fake flow **2개**, 실제 camera plugin의 카메라 없음·재시도 복구 **1개** 통과 ([검증 기록](docs/FINAL_VERIFICATION_2026-09-30.md)). 동일 세션의 `gemini-3.8-flash` primary·`gemini-3.5-flash-lite` fallback 각각 성공, RunnerTests **9/9** 통과. |
-| Samsung SM-S911N, Android 16/API 36, local-only debug | 권한 허용·촬영 후 프리뷰 문제를 수정하고 비율 유지·버튼 배치를 확인했습니다. 전체 OCR·cloud·성능 matrix는 미완료입니다. 확인 스크린샷은 저장소에 포함하지 않았습니다. |
+| Samsung SM-S911N, Android 16/API 36, 실제 카메라 | local-only 실제 촬영→기기 OCR→재촬영 **10/10** 성공. 권한 거부·설정 복구, 빈 입력·재촬영, 저조도·flash 모드, preview background/resume, 촬영 중 background 복구와 OS 설정 회전을 확인했습니다. 자동 flash 점등은 사용자 관찰입니다. 최종 공통 소스 기준 native smoke **4개**, device fake flow **2개** 통과 ([Android 검증 기록](docs/ANDROID_VERIFICATION_2026-09-30.md)). |
+| 같은 Samsung, local-only profile | **3,788 frame**에서 UI build p95 **1.853ms**, raster p95 **4.134ms**. 전체 frame span은 16.667ms 초과가 2건 있어 무지연을 주장하지 않습니다. PSS **272.6→296.4MiB**, 배터리 **38.1→39.0°C**, AP **42.7→43.7°C**; USB 충전 중 짧은 warmed 실행입니다. OCR 지연·장시간 메모리 누수·지속 발열 지표는 아닙니다. |
+| 같은 Samsung, cloud 서비스·기본 앱 | 생성 fixture의 직접 fallback 모델 호출은 성공했고 primary smoke는 재시도 가능한 서비스 오류로 실패했습니다. 이후 기본 앱의 실제 촬영은 사용자가 느리지만 정상 인식됐다고 확인했습니다. 처리 시간·완료 모델·cloud→local 재인식은 측정 또는 확인하지 않았습니다. |
 | iPhone 실기기 | 확보할 수 없어 **미검증**입니다. 사용자 결정으로 시뮬레이터 검증을 최대한 수행하고 실제 카메라·권한 timing·flash·성능·발열·물리 패리티 한계를 명시합니다. |
 
 Android debug/release 및 iOS no-codesign build의 기존 통과 기록은 최신 실기기 실행 완료를 의미하지 않습니다. 명령·기기별 재현 절차는 [E2E 가이드](docs/E2E_TESTING.md), 커밋별 결과는 [검증 기록](docs/CONTEXT.md#latest-observed-evidence)과 [상세 cloud/build 보고서](.superpowers/sdd/firebase-cloud-evidence-report.md)에 있습니다.
+
+Android에서 native OCR 처리 중 정확한 시점의 background 전환, 실기기 엔진 오류 주입·카메라 없음·네트워크 차단은 별도로 관찰하지 않았습니다. local-only 실행은 비행기 모드 테스트가 아닙니다. 공통 소스 `d81d731`의 분석 0 issues·Flutter 테스트 **262개** 결과와 각 실기기 검증의 소스 범위는 [최신 Android 기록](docs/ANDROID_VERIFICATION_2026-09-30.md)을 기준으로 합니다.
 
 공개 [GitHub 저장소](https://github.com/BongJaeChoi/altinus-ocr-assignment)는 사용자의 명시적 요청으로 전환했으며, 승인된 과제 전용 인증 자료가 포함된 상태입니다. 업로드와 회사 메일 제출은 별도이며, 제출 메일은 보내지 않았습니다.
 
@@ -65,7 +69,7 @@ Android debug/release 및 iOS no-codesign build의 기존 통과 기록은 최�
 **Codex**를 요구사항 분석, 설계 대안, 구현·테스트 초안, 코드 검토와 문서 정리에 활용했습니다. 작업은 설계·범위가 제한된 구현·검토 역할로 나누고 결과를 통합했습니다.
 
 - **그대로 사용:** 기록상 AI 출력을 수정 없이 그대로 사용한 항목은 없습니다. 채택한 상태 머신·Pigeon 경계 설계도 코드·테스트·build 결과와 대조했습니다. Pigeon 생성 파일은 도구 산출물이며 AI가 작성한 코드와 구분합니다.
-- **직접 수정·검증:** AI의 180초 watchdog 제안은 사용자 판단으로 누적 60초와 10초 선택 UI로 변경했습니다. Samsung에서 발견된 프리뷰 왜곡과 화면 밖 버튼을 수정하고 비율·짧은 화면 widget 회귀 테스트 및 실제 화면 확인으로 검증했습니다. lifecycle 경합은 실패 테스트를 먼저 관찰한 뒤 수정했습니다.
+- **직접 수정·검증:** AI의 180초 watchdog 제안은 사용자 판단으로 누적 60초와 10초 선택 UI로 변경했습니다. Samsung에서 발견된 프리뷰 왜곡과 화면 밖 버튼을 수정하고 비율·짧은 화면 widget 회귀 테스트 및 실제 화면 확인으로 검증했습니다. lifecycle 경합과 재촬영 시 native OCR 중첩·원본 조기 삭제는 실패 테스트를 먼저 관찰한 뒤 수정했습니다. 공통 controller 테스트 **92개**와 전체 Flutter 테스트 **262개**로 검증했습니다.
 - **기각·판단:** raw HTTP/Dio 추가는 공식 SDK와 기능이 중복되어 기각했습니다. 광범위한 오류 문자열 추측은 잘못된 재시도를 유발하므로 제한했습니다. 단, `firebase_ai 3.10.0`의 408/429 상태 정보 누락에는 adapter 내부의 좁은 분류 예외를 두고 테스트했습니다. 결과 편집·복사는 필수 흐름과 오류 복구에 집중하기 위해 제외했습니다.
 
 제안의 채택·수정·기각 이유와 실행 근거는 [AI 결정 로그](docs/AI_PROMPT_LOG.md)에 남겼습니다.
@@ -86,4 +90,5 @@ flutter test integration_test/simulator_camera_recovery_test.dart \
 
 - [과제 원문 — 제약사항과 README 필수 항목](https://github.com/git-artinus/artinus-fe-recurit/blob/cb7c0d5323e9c0f347253cf52c09594e18342ced/README.md#제약사항)
 - [구현 설계](docs/superpowers/specs/2026-09-28-altinus-camera-ocr-design.md), [AI·검증 기록](docs/AI_PROMPT_LOG.md)
+- [Android 실기기 검증·측정 근거](docs/ANDROID_VERIFICATION_2026-09-30.md), [iOS 시뮬레이터 검증·한계](docs/FINAL_VERIFICATION_2026-09-30.md)
 - [Firebase App Check debug provider](https://firebase.google.com/docs/app-check/flutter/debug-provider), [Firebase AI monitoring](https://firebase.google.com/docs/ai-logic/monitoring)

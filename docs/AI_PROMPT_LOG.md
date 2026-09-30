@@ -1109,3 +1109,11 @@ flowchart LR
 - Performance: local-only profile 3,788 frame samples, UI-build p95 1.853ms and raster p95 4.134ms; two whole-frame spans exceed 16.667ms. PSS and battery/AP temperatures recorded with USB charging; no zero-jank, long-term leak, or sustained thermal guarantee.
 - Fresh terminal verification: source-equivalent ASCII clone flutter analyze reports 0 issues, flutter test --reporter expanded passes 262; scripts/check_context_budget.sh and git diff --check pass. Normal default-cloud debug app restored before user took over. No further device or iOS interaction performed.
 - Outcome: docs/ANDROID_VERIFICATION_2026-09-30.md and sanitized docs/evidence/android-2026-09-30/*.json preserve reproducible E2E evidence/limits. README retains earlier partial Android claims and is left to its assigned owner; physical iPhone/parity and remaining unobserved Android matrix items are not marked passed. No push/submission is performed by this session.
+
+
+### 2026-09-30 23:13 KST — user + AI / README Android result reconciliation
+
+- Request: “ㅇㅋ 리드미 업데이트 해줘.” Adopted; this supersedes the earlier README ownership restriction for the requested evidence update.
+- Change: README now summarizes Samsung physical capture 10/10, recovery and user-observed flash, native 4/device fake 2, profile frame/PSS/temperature measurements, primary-service failure/fallback-service success and delayed user-observed actual capture. Common native serialization/input-retention verification is included in AI-use disclosure. iPhone physical parity and unobserved Android scenarios remain explicit limitations.
+- Source conflict: CONTEXT/PRD contain earlier partial Android checkpoints. README uses the dated Android record and sanitized metrics for current results; original acceptance criteria are unchanged. Android record preserves the earlier ownership/README state as historical context.
+- Verification: README relative file links resolve; 10-cycle success and 3,788-frame/p95 values match committed JSON; stale blanket Android performance/flash-unverified claim removed. scripts/check_context_budget.sh and git diff --check passed. Documentation-only update; no runtime change, device rerun, push or employer submission.
