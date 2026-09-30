@@ -181,17 +181,19 @@ final class _OcrScreenState extends ConsumerState<OcrScreen>
       ),
     };
 
+    final semanticContent = Semantics(
+      key: const ValueKey('status-live-region'),
+      container: true,
+      liveRegion: true,
+      child: content,
+    );
+
     return Scaffold(
       appBar: AppBar(title: const Text(OcrCopy.appTitle)),
       body: SafeArea(
-        child: _ScrollablePage(
-          child: Semantics(
-            key: const ValueKey('status-live-region'),
-            container: true,
-            liveRegion: true,
-            child: content,
-          ),
-        ),
+        child: state is PreviewReady
+            ? semanticContent
+            : _ScrollablePage(child: semanticContent),
       ),
     );
   }
@@ -317,43 +319,131 @@ final class _PreviewContent extends StatelessWidget {
   final VoidCallback onCapture;
 
   @override
-  Widget build(BuildContext context) => _ContentColumn(
-    children: [
-      const _Heading(OcrCopy.previewTitle),
-      const SizedBox(height: 12),
-      const Text(OcrCopy.previewBody, textAlign: TextAlign.center),
-      const SizedBox(height: 16),
-      SizedBox(height: 280, width: double.infinity, child: preview),
-      if (flashSupported) ...[
-        const SizedBox(height: 16),
-        const Text(OcrCopy.flash),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 12,
-          alignment: WrapAlignment.center,
-          children: [
-            ChoiceChip(
-              key: const ValueKey('flash-auto'),
-              label: const Text(OcrCopy.flashAuto),
-              selected: flashMode == CameraFlashMode.auto,
-              onSelected: (_) => onFlashChanged(CameraFlashMode.auto),
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final compact = constraints.maxHeight < 400;
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          ColoredBox(
+            color: Colors.black,
+            child: Center(child: preview),
+          ),
+          if (!compact)
+            Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: _PreviewOverlay(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const _Heading(OcrCopy.previewTitle),
+                        const SizedBox(height: 8),
+                        const Text(
+                          OcrCopy.previewBody,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
-            ChoiceChip(
-              key: const ValueKey('flash-off'),
-              label: const Text(OcrCopy.flashOff),
-              selected: flashMode == CameraFlashMode.off,
-              onSelected: (_) => onFlashChanged(CameraFlashMode.off),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: _PreviewOverlay(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (flashSupported) ...[
+                        if (compact)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                key: const ValueKey('flash-auto'),
+                                tooltip: OcrCopy.flashAuto,
+                                isSelected: flashMode == CameraFlashMode.auto,
+                                icon: const Icon(Icons.flash_auto_outlined),
+                                selectedIcon: const Icon(Icons.flash_auto),
+                                onPressed: () =>
+                                    onFlashChanged(CameraFlashMode.auto),
+                              ),
+                              IconButton(
+                                key: const ValueKey('flash-off'),
+                                tooltip: OcrCopy.flashOff,
+                                isSelected: flashMode == CameraFlashMode.off,
+                                icon: const Icon(Icons.flash_off_outlined),
+                                selectedIcon: const Icon(Icons.flash_off),
+                                onPressed: () =>
+                                    onFlashChanged(CameraFlashMode.off),
+                              ),
+                            ],
+                          )
+                        else ...[
+                          const Text(
+                            OcrCopy.flash,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 12,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              ChoiceChip(
+                                key: const ValueKey('flash-auto'),
+                                label: const Text(OcrCopy.flashAuto),
+                                selected: flashMode == CameraFlashMode.auto,
+                                onSelected: (_) =>
+                                    onFlashChanged(CameraFlashMode.auto),
+                              ),
+                              ChoiceChip(
+                                key: const ValueKey('flash-off'),
+                                label: const Text(OcrCopy.flashOff),
+                                selected: flashMode == CameraFlashMode.off,
+                                onSelected: (_) =>
+                                    onFlashChanged(CameraFlashMode.off),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                      ],
+                      _PrimaryAction(
+                        key: const ValueKey('capture'),
+                        label: OcrCopy.capture,
+                        onPressed: onCapture,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ],
-        ),
-      ],
-      const SizedBox(height: 24),
-      _PrimaryAction(
-        key: const ValueKey('capture'),
-        label: OcrCopy.capture,
-        onPressed: onCapture,
-      ),
-    ],
+          ),
+        ],
+      );
+    },
+  );
+}
+
+final class _PreviewOverlay extends StatelessWidget {
+  const _PreviewOverlay({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.94),
+    borderRadius: BorderRadius.circular(16),
+    child: Padding(padding: const EdgeInsets.all(12), child: child),
   );
 }
 

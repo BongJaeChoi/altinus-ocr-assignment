@@ -62,11 +62,71 @@ void main() {
     ) async {
       final harness = await _pumpAtPreview(tester);
 
+      await tester.ensureVisible(find.byKey(const ValueKey('capture')));
       await tester.tap(find.byKey(const ValueKey('capture')));
       await tester.pump();
 
       expect(harness.camera.captureCount, 1);
       expect(find.textContaining('촬영'), findsWidgets);
+    });
+
+    testWidgets('preview retains its portrait aspect ratio without cropping', (
+      tester,
+    ) async {
+      await _pumpAtPreview(tester);
+
+      final preview = tester.getSize(
+        find.byKey(const ValueKey('camera-preview-placeholder')),
+      );
+      expect(preview.width / preview.height, closeTo(3 / 4, 0.01));
+      expect(find.byKey(const ValueKey('capture')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('flash and capture stay tappable on a short screen', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 560));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final harness = await _pumpAtPreview(tester);
+
+      final screen = tester.getRect(find.byType(OcrScreen));
+      for (final key in ['flash-off', 'capture']) {
+        final action = tester.getRect(find.byKey(ValueKey(key)));
+        expect(action.top, greaterThanOrEqualTo(screen.top));
+        expect(action.bottom, lessThanOrEqualTo(screen.bottom));
+      }
+
+      await tester.tap(find.byKey(const ValueKey('flash-off')));
+      await tester.pump();
+      expect(harness.camera.flashModes, [CameraFlashMode.off]);
+      await tester.tap(find.byKey(const ValueKey('capture')));
+      await tester.pump();
+      expect(harness.camera.captureCount, 1);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('compact preview keeps controls usable with large text', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(320, 360));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final harness = await _pumpAtPreview(tester, textScaleFactor: 2);
+
+      final screen = tester.getRect(find.byType(OcrScreen));
+      for (final key in ['flash-off', 'capture']) {
+        final action = tester.getRect(find.byKey(ValueKey(key)));
+        expect(action.top, greaterThanOrEqualTo(screen.top));
+        expect(action.bottom, lessThanOrEqualTo(screen.bottom));
+      }
+
+      await tester.tap(find.byKey(const ValueKey('flash-off')));
+      await tester.pump();
+      expect(harness.camera.flashModes, [CameraFlashMode.off]);
+      await tester.tap(find.byKey(const ValueKey('capture')));
+      await tester.pump();
+      expect(harness.camera.captureCount, 1);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets(
@@ -107,6 +167,7 @@ void main() {
       tester,
     ) async {
       await _pumpAtPreview(tester);
+      await tester.ensureVisible(find.byKey(const ValueKey('capture')));
       await tester.tap(find.byKey(const ValueKey('capture')));
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('recapture')));
@@ -249,6 +310,7 @@ void main() {
           tester,
           cloudConfigurationPending: true,
         );
+        await tester.ensureVisible(find.byKey(const ValueKey('capture')));
         await tester.tap(find.byKey(const ValueKey('capture')));
         await tester.pump();
         harness.camera.completeCapture(0, '/temporary/photo.jpg');

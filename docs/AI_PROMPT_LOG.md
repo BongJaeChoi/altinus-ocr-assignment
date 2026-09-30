@@ -824,3 +824,35 @@ flowchart LR
   `git diff --check` passed on the executable range. Physical Android/iPhone camera,
   permission-sheet timing, flash, App Check, performance, heat, and parity
   remain open final gates.
+
+### 2026-09-30 — user + AI / physical Android preview and controls
+
+- Request/prompt: After a real Android permission grant and capture, the user
+  observed that the camera preview stretched horizontally and approved a fix
+  with neither distortion nor cropping. The user then found that the taller
+  preview pushed flash/capture off-screen and directed an overlay layout.
+- Cause/decision: `_PreviewContent` forced the preview into full width × 280
+  logical pixels, while the official `camera 0.12.1` `CameraPreview` sizes
+  itself by the controller's orientation-aware aspect ratio. The fixed parent
+  defeated that ratio. Adopted an unconstrained-ratio preview centered in the
+  available viewport, with a fixed lower overlay for flash/capture and a compact
+  icon mode on very short screens. The fake repository placeholder uses a
+  portrait 3:4 ratio. Rejected a fixed 280-pixel `cover` viewport because it
+  hides part of the camera field of view; the previous full-height scrolling
+  layout was replaced after user feedback because it hid the actions.
+- RED/GREEN evidence: the widget regression observed width/height `1.714`
+  before the ratio fix against expected `0.75`; a short-screen action check
+  then failed with a flash control below the 560-pixel viewport (`bottom 636.7`).
+  Both pass with the overlay, as does a 320×360 large-text control test. The
+  earlier recovery test caught a 127-pixel compact-height overflow, which the
+  compact icon mode resolves.
+- Physical observation: rebuilt a local-only debug APK and reinstalled it on a
+  Samsung SM-S911N, Android 16/API 36. The final overlay build showed the
+  portrait camera frame and positioned flash controls at y=1854–1983 and
+  capture at y=2015–2141, above the navigation bar starting y=2214, without
+  scrolling. A local screenshot was inspected but not committed; it confirms
+  the full preview is fitted into the viewport, though the overlay covers parts
+  of the live image. No captured image or recognized private text is committed.
+- Tool limit: `flutter analyze` in the Korean parent path again failed in the
+  analysis-server LSP framing before emitting diagnostics. Analyze the same
+  source from an ASCII-only checkout during the iOS matrix.

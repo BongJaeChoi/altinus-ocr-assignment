@@ -17,10 +17,12 @@ final class CameraPreviewSurface extends StatelessWidget {
     if (handle is CameraController && handle.value.isInitialized) {
       return CameraPreview(handle, key: const ValueKey('camera-preview'));
     }
-    return const ColoredBox(
-      key: ValueKey('camera-preview-placeholder'),
-      color: Color(0xFF202124),
-      child: SizedBox.expand(),
+    return const AspectRatio(
+      aspectRatio: 3 / 4,
+      child: ColoredBox(
+        key: ValueKey('camera-preview-placeholder'),
+        color: Color(0xFF202124),
+      ),
     );
   }
 }

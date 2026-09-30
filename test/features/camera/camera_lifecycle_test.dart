@@ -30,6 +30,7 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(harness.camera.initializeCount, 1);
+    await tester.ensureVisible(find.byKey(const ValueKey('flash-off')));
     await tester.tap(find.byKey(const ValueKey('flash-off')));
     await tester.pump();
     expect(harness.camera.flashModes, [CameraFlashMode.off]);
