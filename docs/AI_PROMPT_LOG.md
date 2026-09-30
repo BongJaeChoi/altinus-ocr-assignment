@@ -856,3 +856,29 @@ flowchart LR
 - Tool limit: `flutter analyze` in the Korean parent path again failed in the
   analysis-server LSP framing before emitting diagnostics. Analyze the same
   source from an ASCII-only checkout during the iOS matrix.
+
+
+### 2026-09-30 22:03 KST — user + AI / authorized GitHub checkpoint
+
+- Request/prompt: The user asked whether to upload before all remaining work
+  finished and explicitly authorized proceeding ("ㄱㄱㄱㄱㄱ").
+- Decision/outcome: Adopted. Created private repository
+  `https://github.com/BongJaeChoi/altinus-ocr-assignment` under the active
+  `BongJaeChoi` account and connected `origin`. Prepare the verified committed
+  implementation and this handoff log for the first `main` push. This is a
+  GitHub checkpoint, not authorization to email or submit to the employer.
+- Scope: Preserve the existing uncommitted Xcode project settings in
+  `ios/Runner.xcodeproj/project.pbxproj`; they are excluded from this upload.
+  Existing evaluator-bundle exceptions remain limited to the three approved
+  files. No additional credential exception is introduced.
+- Fresh verification: Source exported from `1d83b68` with `git archive HEAD`
+  into an ASCII-only temporary directory. `flutter pub get` succeeded;
+  `flutter analyze` reported 0 issues; `flutter test --reporter compact` passed
+  all 255 tests. `scripts/check_context_budget.sh` and `git diff --check`
+  succeeded. A historical blob pattern scan found no private-key PEM, GitHub
+  token, or Google API-key matches outside the expected Firebase config files.
+  This bounded scan is not a claim that every possible secret format is absent.
+- Platform limits: `adb devices -l` sees a physical Samsung SM-S911N;
+  `xcrun xctrace list devices` sees no connected physical iPhone. No new native
+  build or camera/OCR device run was performed for this source-unmodified
+  upload. Remaining real-device matrix gates are not promoted to complete.
