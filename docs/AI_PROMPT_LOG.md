@@ -1135,3 +1135,10 @@ flowchart LR
 
 - Final review outcome (2026-09-30 23:17 KST): production/controller-test hashes unchanged; all committed changes since 984335a are docs/evidence. JSON confirms physical cycles 10/10, 3,788 frames, build/raster p95 1.853/4.134ms, two elapsed spans over 16.667ms and PSS conversion. README/evidence relative links resolve; context budgets and diff hygiene pass. Existing 262-test/analysis and per-platform records remain valid for this unchanged executable source; no duplicate device/cloud run performed.
 - Packaging decision: user-requested combined-platform handoff permits a documentation-only evidence reconciliation commit. Specific hook exception is limited to aligning CONTEXT/PRD/audit/log with Android report d2a79b7 and README c03bcb0. Preserve local Xcode and task files; then perform the already-authorized non-force main push and verify remote SHA/PUBLIC visibility. Employer email remains unsent.
+
+
+### 2026-09-30 23:23 KST — user + AI / submission README editorial correction
+
+- Request: remove the internal public-visibility/authorization/email-status paragraph and make the writing sound natural for the assignment recipient.
+- Adopted: rewrite README around execution, architecture, tradeoffs, test/device results and concise required AI-use examples. Remove internal user/session/approval language; preserve the original requirement to disclose AI assistance, exact observed metrics, credential setup and hardware limitations. No runtime change.
+- Verification: requested paragraph and internal wording absent; local links resolve; retained 10-cycle/3,788-frame/p95 values match committed JSON. AI adoption/modification/rejection examples remain. Context budgets and diff hygiene pass. User-requested submission artifact supports the documentation-only commit.
