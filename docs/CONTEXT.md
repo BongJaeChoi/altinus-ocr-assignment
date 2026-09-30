@@ -121,6 +121,17 @@ Re-check environment/device facts immediately before implementation and E2E; the
 
 ## Latest observed evidence
 
+- Combined final handoff: Android evidence `d2a79b7` and README update
+  `c03bcb0` record Samsung SM-S911N physical local camera/OCR/recapture 10/10,
+  permission/settings recovery, blank input and short local-only profile
+  measurements. User observed flash and delayed actual-camera recognition.
+  Expanded native smoke 4/4 and device fake flow 2/2 passed. Exact observations,
+  source hashes, sanitized metrics and remaining scenarios are in
+  `docs/ANDROID_VERIFICATION_2026-09-30.md`. Earlier partial Android entries
+  below describe their dated checkpoints, not the final Android state.
+  Short profile results do not establish long-term memory/heat stability;
+  direct primary cloud smoke failed while fallback passed. Physical iPhone
+  and full platform parity remain unverified.
 - Final iOS simulator handoff uses a read-only snapshot of the concurrent
   common-code fix, with exact source hashes and fresh results in
   `docs/FINAL_VERIFICATION_2026-09-30.md`. This is not physical iPhone proof.
@@ -187,10 +198,12 @@ Re-check environment/device facts immediately before implementation and E2E; the
   The same run sanitized a missing image and completed ten
   sequential native OCR requests. The two fake full-flow tests and 9/9
   RunnerTests also passed. This does not promote any physical-device gate.
-- Android physical preview/control placement has partial evidence only.
-  Android App Check, full OCR/lifecycle, performance, heat, and flash gates
-  remain unverified; iPhone physical verification and platform parity remain
-  blocked without a connected iPhone and separate run evidence.
+- Earlier Android checkpoint had only partial physical preview/control
+  evidence. The final Android record above supersedes that blanket limitation:
+  physical local OCR/recovery, short profile and user-observed flash now have
+  evidence. Exact OCR-stage lifecycle interruption, engine-failure injection,
+  absent-camera hardware and network-disconnected operation remain unobserved;
+  iPhone physical verification and platform parity remain unverified.
 
 ## Done evidence ledger
 

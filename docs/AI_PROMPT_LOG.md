@@ -1117,3 +1117,21 @@ flowchart LR
 - Change: README now summarizes Samsung physical capture 10/10, recovery and user-observed flash, native 4/device fake 2, profile frame/PSS/temperature measurements, primary-service failure/fallback-service success and delayed user-observed actual capture. Common native serialization/input-retention verification is included in AI-use disclosure. iPhone physical parity and unobserved Android scenarios remain explicit limitations.
 - Source conflict: CONTEXT/PRD contain earlier partial Android checkpoints. README uses the dated Android record and sanitized metrics for current results; original acceptance criteria are unchanged. Android record preserves the earlier ownership/README state as historical context.
 - Verification: README relative file links resolve; 10-cycle success and 3,788-frame/p95 values match committed JSON; stale blanket Android performance/flash-unverified claim removed. scripts/check_context_budget.sh and git diff --check passed. Documentation-only update; no runtime change, device rerun, push or employer submission.
+
+
+### 2026-09-30 23:13 KST — user + AI / prepare for Android README integration
+
+- Request: Android session completed verification and started README update; prepare the iOS side.
+- Adopted: leave README/Android/shared production edits with the active owner; prepare read-only final integration checks and keep iOS source/results ready. No new device run or push initiated.
+- Fresh verification: current hashed common lib/controller tests exactly match the final iOS-tested source (no changed paths). Read Android evidence commit d2a79b7 and iOS handoff 984335a; context budgets and diff hygiene pass.
+- Outcome: local final-review checklist saved under /tmp/altinus-finalize-56bxcev7/evidence/ios-final-review-checklist.md. Final combined README review follows its owner's completed edit. Physical iPhone and parity remain unverified.
+
+
+### 2026-09-30 23:15 KST — user + AI / final combined-platform GitHub handoff
+
+- Request: user confirmed Android session complete. Proceed with final combined evidence review and the previously authorized public GitHub handoff.
+- Source conflict identified before edit: current README/Android evidence d2a79b7 + c03bcb0 records physical local capture 10/10 and short profile/flash observations, while CONTEXT/PRD still summarize the earlier partial Android checkpoint. Original acceptance criteria do not change. Align current evidence/risk summaries and label historical checkpoint scope; do not inflate unobserved physical tests.
+- Verification approach: compare current production/tests to the previously passing source, reconcile README metrics against committed JSON and check local evidence links/context budget/diff hygiene. Documentation-only handoff; no runtime or device change. No employer email/submission is authorized.
+
+- Final review outcome (2026-09-30 23:17 KST): production/controller-test hashes unchanged; all committed changes since 984335a are docs/evidence. JSON confirms physical cycles 10/10, 3,788 frames, build/raster p95 1.853/4.134ms, two elapsed spans over 16.667ms and PSS conversion. README/evidence relative links resolve; context budgets and diff hygiene pass. Existing 262-test/analysis and per-platform records remain valid for this unchanged executable source; no duplicate device/cloud run performed.
+- Packaging decision: user-requested combined-platform handoff permits a documentation-only evidence reconciliation commit. Specific hook exception is limited to aligning CONTEXT/PRD/audit/log with Android report d2a79b7 and README c03bcb0. Preserve local Xcode and task files; then perform the already-authorized non-force main push and verify remote SHA/PUBLIC visibility. Employer email remains unsent.

@@ -92,7 +92,7 @@ Submission context from the document-pass email: GitHub repository URL due by `2
 
 ## 8. Highest risks
 
-- Android Samsung SM-S911N has partial real-device preview/control evidence; the complete Android matrix is unverified, and iPhone real-device acceptance remains blocked without hardware.
+- Samsung SM-S911N now has physical local capture/OCR/retry 10/10, recovery and short profile evidence (see docs/ANDROID_VERIFICATION_2026-09-30.md). Some Android physical failure/lifecycle/offline scenarios and long-term stability remain unverified; iPhone real-device acceptance and physical parity remain unverified without hardware.
 - Camera/OCR plugins may differ by OS version, architecture, lifecycle, and permission behavior.
 - OCR latency and image memory pressure can cause jank or termination if processing is not bounded.
 - Simulator/emulator and mocked tests can hide real camera orientation, permission, and resource-lifecycle defects.
