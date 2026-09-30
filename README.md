@@ -32,8 +32,8 @@ flutter run -d <device-id> --dart-define=ARTINUS_CLOUD_EVIDENCE=false
 
 ## Trade-off와 알려진 한계
 
-- **클라우드와 로컬:** 첫 모델은 `gemini-3.8-flash`이며, 재시도 가능한 일시 오류에만 `gemini-3.5-flash-lite`로 한 번 재시도합니다. 네트워크·quota·서비스 지연이 있고 이미지가 외부로 전송됩니다. 10초에 기기 OCR/대기 선택을 제공하고 누적 60초에 클라우드 대기를 종료합니다. 로컬 전환은 순차적으로 요청하지만 이미 시작된 SDK 호출 자체를 취소하지는 못합니다.
-- **나쁜 입력·오류:** 읽을 문자 없음과 OCR 실패를 구분하고 재촬영·기기 인식을 제공합니다. 클라우드 입력은 크기·픽셀 수를 제한하고 방향을 보정합니다. 블러·저조도·기울어짐을 자동 복원하거나 인식 정확도를 보장하지 않습니다. 권한 거부·카메라 오류는 재시도 또는 설정 안내로 복구합니다.
+- **클라우드와 로컬:** 첫 모델은 `gemini-3.8-flash`이며, 재시도 가능한 일시 오류에만 `gemini-3.5-flash-lite`로 한 번 재시도합니다. 네트워크·quota·서비스 지연이 있고 이미지가 외부로 전송됩니다. 10초에 기기 OCR/대기 선택을 제공하고 누적 60초에 클라우드 대기를 종료합니다. 로컬은 사용자의 전환 선택/실패 복구 후 요청합니다. 이미 시작된 cloud SDK 호출 자체를 취소하지 못해 일시적으로 local과 겹칠 수 있지만, 늦은 cloud 결과는 무시합니다. 진행 중인 기기 OCR의 원본을 읽는 동안 유지하고, 다음 로컬 요청은 이전 native 완료를 기다립니다. 정확한 검증 소스 범위는 최종 검증 기록에 남겼습니다.
+- **나쁜 입력·오류:** 읽을 문자 없음과 OCR 실패를 구분하고 재촬영·기기 인식을 제공합니다. 클라우드 입력은 크기·픽셀 수를 제한하고 방향을 보정합니다. 블러·저조도·15도 기울임 생성 fixture와 손상 파일로 native 결과/오류 경계를 검사하며, 이를 자동 복원하거나 인식 정확도를 보장하지 않습니다. 권한 거부·카메라 오류는 재시도 또는 설정 안내로 복구합니다.
 - **임시 파일·개인정보:** 갤러리와 OCR 이력에 저장하지 않으며, 재촬영·dispose 시 소유 파일을 정리합니다. 비정상 종료 시 카메라 임시 파일은 남을 수 있습니다. Firebase AI monitoring은 100% sampling이며 입력·출력이 수집될 수 있으므로 민감한 사진은 테스트에 사용하지 마세요.
 - **플랫폼 차이:** Android는 Play Integrity, iOS debug는 등록된 App Check debug provider를 사용합니다. iOS profile/release는 debug token을 사용하지 않으며 클라우드 평가 실행에 별도 production App Check 구성이 필요합니다. 기존 release 산출물에서 debug token 부재를 확인했으며, 평가 종료 후 평가용 token·인증서 등록을 폐기할 계획입니다.
 - **실기기 검증:** Samsung에서 프리뷰 비율과 버튼 배치를 확인했지만 하단 버튼 overlay가 프리뷰 일부를 덮습니다. iPhone 실기기, 전체 기능 패리티, frame time·메모리·발열·flash 점등은 검증하지 못했습니다.
@@ -50,13 +50,15 @@ flutter test -d flutter-tester integration_test/fake_flow_test.dart
 
 | 기준 / 환경 | 기록된 결과와 범위 |
 | --- | --- |
-| `1d83b68`, 2026-09-30 22:03 KST, 영문 경로 소스 export | `flutter analyze` 0 issues, Flutter 테스트 **255개 통과**. 이 checkpoint에서 native matrix 전체를 재실행하지 않았습니다. |
+| 2026-09-30 최종 iOS 검증용 영문 경로 스냅샷 | 공통 OCR 최종 소스 스냅샷 기준 `flutter analyze` 0 issues, Flutter 테스트 **262개**, host fake flow **2개** 통과. 정확한 소스·명령은 [최종 검증 기록](docs/FINAL_VERIFICATION_2026-09-30.md)에 있습니다. |
 | Android API 33 Play Store / API 36 emulator, 이전 커밋 실행 | API 33은 native OCR·fake flow 통과, cloud는 App Check 403으로 차단됐습니다. API 36은 권한·재촬영·background/resume·회전 등을 확인했습니다. 물리 카메라 증거는 아닙니다. |
-| iPhone 16 Pro / iOS 18.5 및 iPhone 14 Pro Max / iOS 18.3 simulator, 이전 커밋 실행 | native OCR·fake flow·cloud 실행 기록이 있으며, iOS 18.3에서 primary/fallback cloud를 확인했습니다. 서로 다른 실행이며 실기기 검증을 대체하지 않습니다. |
+| iPhone 16 Pro / iOS 18.5 simulator, 최종 보완 | native 입력 smoke **4개**, fake flow **2개**, 실제 camera plugin의 카메라 없음·재시도 복구 **1개** 통과 ([검증 기록](docs/FINAL_VERIFICATION_2026-09-30.md)). 동일 세션의 `gemini-3.8-flash` primary·`gemini-3.5-flash-lite` fallback 각각 성공, RunnerTests **9/9** 통과. |
 | Samsung SM-S911N, Android 16/API 36, local-only debug | 권한 허용·촬영 후 프리뷰 문제를 수정하고 비율 유지·버튼 배치를 확인했습니다. 전체 OCR·cloud·성능 matrix는 미완료입니다. 확인 스크린샷은 저장소에 포함하지 않았습니다. |
-| iPhone 실기기 | 연결된 기기가 없어 **미검증**입니다. |
+| iPhone 실기기 | 확보할 수 없어 **미검증**입니다. 사용자 결정으로 시뮬레이터 검증을 최대한 수행하고 실제 카메라·권한 timing·flash·성능·발열·물리 패리티 한계를 명시합니다. |
 
 Android debug/release 및 iOS no-codesign build의 기존 통과 기록은 최신 실기기 실행 완료를 의미하지 않습니다. 명령·기기별 재현 절차는 [E2E 가이드](docs/E2E_TESTING.md), 커밋별 결과는 [검증 기록](docs/CONTEXT.md#latest-observed-evidence)과 [상세 cloud/build 보고서](.superpowers/sdd/firebase-cloud-evidence-report.md)에 있습니다.
+
+공개 [GitHub 저장소](https://github.com/BongJaeChoi/altinus-ocr-assignment)는 사용자의 명시적 요청으로 전환했으며, 승인된 과제 전용 인증 자료가 포함된 상태입니다. 업로드와 회사 메일 제출은 별도이며, 제출 메일은 보내지 않았습니다.
 
 ## AI 도구와 직접 판단한 내용
 
@@ -67,6 +69,18 @@ Android debug/release 및 iOS no-codesign build의 기존 통과 기록은 최�
 - **기각·판단:** raw HTTP/Dio 추가는 공식 SDK와 기능이 중복되어 기각했습니다. 광범위한 오류 문자열 추측은 잘못된 재시도를 유발하므로 제한했습니다. 단, `firebase_ai 3.10.0`의 408/429 상태 정보 누락에는 adapter 내부의 좁은 분류 예외를 두고 테스트했습니다. 결과 편집·복사는 필수 흐름과 오류 복구에 집중하기 위해 제외했습니다.
 
 제안의 채택·수정·기각 이유와 실행 근거는 [AI 결정 로그](docs/AI_PROMPT_LOG.md)에 남겼습니다.
+
+시뮬레이터 재현 명령(카메라 없음 검사는 실기기에서 실행하지 않습니다):
+
+```bash
+flutter build ios --debug --no-codesign
+flutter test integration_test/native_ocr_smoke_test.dart -d <simulator-id>
+flutter test integration_test/fake_flow_test.dart -d <simulator-id>
+flutter test integration_test/simulator_camera_recovery_test.dart \
+  -d <simulator-id> --dart-define=RUN_SIMULATOR_CAMERA_CHECK=true
+```
+
+핀된 ML Kit 조합은 arm64/iOS 26+ simulator 경고를 출력하므로 검증된 iOS 18.5/x86_64 환경을 사용합니다. [Apple의 Simulator 안내](https://developer.apple.com/documentation/Xcode/running-your-app-on-simulated-or-physical-devices)처럼 이 결과를 실제 기기의 기능·성능 증거로 해석하지 않습니다.
 
 ## 근거
 

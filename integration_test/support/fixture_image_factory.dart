@@ -13,6 +13,8 @@ enum FixtureImageVariant {
   darkLowContrast,
   rotated,
   multiline,
+  blurred,
+  skewed,
 }
 
 final class FixtureImageFactory {
@@ -52,16 +54,30 @@ final class FixtureImageFactory {
       );
       try {
         painter.layout(maxWidth: 1000);
-        if (variant == FixtureImageVariant.rotated) {
+        if (variant == FixtureImageVariant.blurred) {
+          canvas.saveLayer(
+            const Rect.fromLTWH(0, 0, _width, _height),
+            Paint()..imageFilter = ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          );
+        }
+        if (variant == FixtureImageVariant.rotated ||
+            variant == FixtureImageVariant.skewed) {
           canvas
             ..save()
             ..translate(_width / 2, _height / 2)
-            ..rotate(math.pi / 2)
+            ..rotate(
+              variant == FixtureImageVariant.rotated
+                  ? math.pi / 2
+                  : math.pi / 12,
+            )
             ..translate(-painter.width / 2, -painter.height / 2);
           painter.paint(canvas, Offset.zero);
           canvas.restore();
         } else {
           painter.paint(canvas, const Offset(100, 240));
+        }
+        if (variant == FixtureImageVariant.blurred) {
+          canvas.restore();
         }
       } finally {
         painter.dispose();

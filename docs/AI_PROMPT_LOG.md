@@ -956,3 +956,146 @@ flowchart LR
   log only. This is the requested submission/handoff artifact and qualifies
   for the documented docs-only commit exception with a specific reason.
 - Boundary: Local merge/cleanup only; no new push or employer submission.
+
+
+### 2026-09-30 22:14 KST — user + AI / parallel requirements acceptance audit
+
+- Request/prompt: User requested a fast, thorough requirements check using
+  worktrees/subagents in parallel.
+- Decision/outcome: Adopted three bounded read-only reviews (camera/state/UI,
+  OCR/native, requirement evidence) plus independent ASCII-path GitHub clones
+  for Android, iOS, and one diagnostic test. No production edit or external
+  access/visibility/submission change. Contracts are under `.agents/tasks/`.
+  Catalog legacy luna/terra models are unavailable; the bounded evidence
+  finder used supported `gpt-6-luna`/medium, reviewers inherited the main model.
+- Affected artifacts: `docs/QA_AUDIT_2026-09-30.md`, read-only task contracts,
+  and temporary command logs at `/tmp/altinus-audit-osf7e36z/evidence`.
+- Verification evidence: pinned assignment README fetched fresh; published
+  `a2a6254` clean clone passed Pigeon regeneration/diff, analysis 0 issues, all
+  255 unit/widget tests, 2 host fake-flow tests, context budget, containment
+  scanner fixture tests, Android physical native OCR 3/3 and fake flow 2/2,
+  Android unit/lint (422 tasks), and iOS device debug no-codesign build.
+  iOS 18.5 simulator native OCR retry passed 3/3 after an initial debug-log
+  connection failure; the intended simulator was observed shutdown afterward
+  and was explicitly booted for the retry. This is not physical iPhone proof.
+- Reproduced defect: added an audit-only local-OCR single-flight assertion in
+  the isolated diagnostic clone. Held local OCR → recapture → capture again
+  produced 2 incomplete requests, against expected maximum 1 (exit 1).
+  Native async adapters do not impose a completion-level concurrency bound.
+  Production was not fixed during this inspection.
+- Evidence/access gaps: no available physical iPhone, no complete device
+  frame-time/memory/heat/parity matrix, stale README latest-state/push/device
+  claims, and private GitHub with no non-owner collaborators.
+- Device side effect/recovery: Flutter integration install hit a debug-signature
+  mismatch and automatically uninstalled/reinstalled the previous Android
+  package. After fixture runs, normal local-only debug APK was rebuilt and
+  installed successfully. App permission/disclosure state may reset.
+- Completion scope: this audit identifies acceptance gaps; passing existing
+  tests does not imply all assignment requirements are accepted. Release
+  builds/token scans, XCTest, new live-cloud smokes, and physical-camera/perf
+  E2E were not rerun. The report contains exact commands and remaining limits.
+
+- Final native result: iOS 18.5 simulator fake flow also passed 2/2. Audit
+  finalized with no required verification command left running.
+
+
+### 2026-09-30 22:25 KST — user + AI / explicitly authorized public repository
+
+- Request/prompt: User selected public visibility after disclosure that the
+  dedicated evaluator keystore and iOS App Check debug token are tracked, and
+  reiterated "저장소를 공개로 변경".
+- Decision/outcome: Adopted. Changed `BongJaeChoi/altinus-ocr-assignment` to
+  PUBLIC using `gh repo edit --visibility public
+  --accept-visibility-change-consequences`.
+- Verification: `gh repo view --json url,visibility` returned PUBLIC and the
+  expected repository URL. No recruiter mail or employer submission performed.
+  Previously approved credential exception remains exactly three files.
+
+
+### 2026-09-30 22:28 KST — user + AI / real-device verification status check
+
+- Request/prompt: Check where the unfinished real-device verification stands.
+- Decision/outcome: Adopted a read-only status inspection; no app install, new
+  E2E run, code fix, commit, push, or submission performed.
+- Evidence: `adb devices -l` and `flutter devices --machine` freshly detect
+  physical Samsung SM-S911N, Android 16/API 36. Flutter lists iOS simulators
+  only; `xcrun xcdevice list --timeout 5` finds no available physical iPhone.
+- Recorded progress: physical Android preview/control observation at the
+  2026-09-30 log entry; audit records native OCR 3/3 and fake flow 2/2 on
+  that Android, followed by successful restoration of the normal local-only
+  debug app. These are prior results, not tests rerun for this status check.
+- Remaining: physical camera-to-result/cloud/permission/lifecycle/flash and
+  frame-time/memory/heat matrix, physical iPhone and parity evidence. Audit's
+  reproduced unfinished local-OCR overlap remains unfixed in this checkout.
+- Source conflict: CONTEXT/README no-Android-device statements predate the
+  physical observation and audit. Use dated device evidence for this status;
+  do not promote stale summaries or simulator evidence into physical passes.
+
+
+### 2026-09-30 22:39 KST — user + AI / Android owned by another session
+
+- Request/prompt: User stated "안드는 다른세션에서 하는중".
+- Decision/outcome: Adopted. Stop further Android builds/device operations in
+  this session; finish shared local-OCR guard, iOS simulator verification and
+  accurate handoff/GitHub work. The earlier Android command batch was already
+  complete before this direction. Do not overwrite another session's source
+  changes during main integration; compare against the isolated baseline first.
+- Verification: Android batch returned native/fake/unit-lint/release/general
+  debug/install exit 0 before this message; no Android command started after it.
+
+
+### 2026-09-30 22:40 KST — user + AI / resume real-device verification and bound local OCR
+
+- Request/prompt: Proceed immediately and check physical-device scenarios
+  against the assignment README. User prepared non-sensitive printed input.
+- Adopted plan: controller completion gate, transaction check before native
+  dispatch, path-specific non-abandonable native read tokens, and deferred
+  contained cleanup on recapture. Existing preview/recovery flow is preserved;
+  no native cancellation claim. Alternative service-only serialization was
+  rejected because it does not discard stale queued jobs or protect inputs.
+- Contract: main writes controller + its tests; README/evidence/log updates
+  only from fresh verification. Preserve pre-existing Xcode project changes.
+  Bounded file_finder and solution_planner were read-only; legacy catalog
+  finder model unavailable, supported gpt-6-luna/low used. Planner used
+  catalog gpt-5.6-sol/high; bounded independent review uses same catalog role.
+- TDD evidence: ASCII source clone `/tmp/altinus-device-verification.NdmShZ`;
+  original source with new regressions has 6 expected failures including
+  native request overlap and early input deletion. Revised source passes
+  all 90 controller tests, including stale queue, failure, sync throw,
+  disposal, and late-preparation retention. Full verification/device runs
+  remain pending at this entry.
+- Requirement source: pinned assignment README fetched directly, lines 29–34
+  require camera/capture/OCR/result, parity, smooth physical preview, UI
+  nonblocking work, poor input, permission/OCR failures; evaluation line 58
+  adds iOS/Android memory/heat. Cloud/flash are implementation-specific checks,
+  not independent employer mandates.
+- Device evidence: fresh ADB/Flutter identify physical SM-S911N Android 16.
+  No physical iPhone is available. Initial generated-fixture Android cloud
+  smoke failed at sanitized OcrFailure boundary, reason not yet established.
+  Initial package inventory found no installed assignment app before this
+  run; integration smoke installed its debug test target.
+
+
+### 2026-09-30 22:53 KST — user + AI / shared-source ownership and iOS handoff
+
+- Request: user chose “다른 세션이 공통 OCR 수정 담당, 이 세션은 iOS 검증·README”. No physical iPhone is available; maximize simulator checks.
+- Adopted: common production/controller tests and Android remain with the other session. This session copies source read-only into an ASCII worktree, adds generated poor-input/native smoke and explicitly enabled simulator absent-camera recovery coverage, and refreshes README/evidence. Existing Xcode signing edits are preserved.
+- Rejected for integration: this session's earlier service busy-guard experiment, even though its isolated tests passed. It was removed from deliverable scope after ownership clarification. No duplicate shared-file implementation is integrated.
+- Fresh evidence so far: latest common-source snapshot passed analysis (0 issues), 262 Flutter tests and 2 host fake-flow tests. iOS native smoke passed 4, device fake-flow passed 2, RunnerTests passed 9/9; generated-input primary and fallback cloud each passed. Final absent-camera run and normal target restoration are pending.
+- Scope limit: generated native inputs and simulator recovery do not establish physical camera, permission timing, flash, performance, heat or platform parity. Public GitHub authorization remains separate from employer email submission.
+
+
+### 2026-09-30 22:59 KST — AI / iOS recovery test correction and source reconciliation
+
+- Failed experiment: initial real-camera simulator test used pumpAndSettle, then cast Booting to RecoverableError. Quiet frames did not imply asynchronous startup had completed. Replaced this with a bounded wait for actual state. Retry additionally observes a fresh CameraInitializing transition and a new RecoverableError, avoiding a stale-state false pass. An intermediate debug connection stall was stopped and preserved in local logs.
+- Verification: final camera recovery integration passed 1/1 on iPhone 16 Pro/iOS 18.5 simulator with actual camera plugin and only disclosure persistence overridden. Native poor-input smoke passed 4/4. Independent read-only review confirmed scoped assertions and required recorded camera outcome; report was amended after the pass.
+- Source reconciliation: all hashed lib and controller-test files in final verification snapshot match common owner commit d81d731. No common production changes are authored by this handoff. README/evidence and owned fixture/integration test paths integrated; pre-existing Xcode project changes preserved.
+- Final no-codesign release/general simulator rechecks and GitHub upload remain pending at this entry. No physical camera/performance claim or employer email action.
+
+
+### 2026-09-30 23:03 KST — AI / final iOS executable verification and authorized packaging
+
+- Final source: common controller/lib test snapshot byte hashes match owner commit d81d731. Final analysis 0 issues, all 262 Flutter tests, host fake 2/2; final-source simulator fake 2/2 and real-camera unavailable/retry 1/1. Native input/service smoke 4/4 and RunnerTests 9/9 retain their explicitly recorded source boundaries. Generated-fixture cloud primary/fallback each succeeded before common refresh; no controller or physical-camera proof is inferred.
+- Fresh final build evidence: local-only normal simulator build and simctl install both exit 0; latest common source release no-codesign build exit 0. Scanner rerun after that build reports release_token_containment=PASS. It inspects the already-built Android artifact only; no Android command is executed.
+- Packaging: user-authorized public GitHub handoff contains owned test expansion, README and evidence. Commit uses explicit owned paths, preserving local Xcode signing changes and unrelated task files. No employer message or hiring-site action is authorized/performed.
+- Sources/results: docs/FINAL_VERIFICATION_2026-09-30.md, local evidence under /tmp/altinus-finalize-56bxcev7/evidence; context budgets and diff hygiene passed. Raw generated cloud trace content/credentials are not copied.

@@ -15,7 +15,7 @@ Use deterministic framework integration tests for repeatability and real-device 
 
 ARTEMIS is an Android UI automation system with CLI, MCP, and Python SDK surfaces. It does not currently establish native iOS coverage.
 
-Iterate on an Android device during development. Final evidence must include a clean-clone run with fixed inputs, cloud-first and local-fallback paths, Pigeon behavior, frame-time, memory, and heat observations. Borrowed iPhone evidence is required for the final iOS real-device proof.
+Iterate on an Android device during development. Final evidence must include a clean-clone run with fixed inputs, cloud-first and local-fallback paths, Pigeon behavior, frame-time, memory, and heat observations. No physical iPhone is available for this handoff. The user chose maximum feasible simulator checks and disclosure of the physical-device limitation; simulator runs still cannot establish physical iOS proof.
 
 ### Local setup
 
@@ -132,7 +132,7 @@ Because ARTEMIS and Chrome CDP do not cover native iOS camera behavior, use:
 - a real iPhone manual run for permission, preview, capture, OCR, lifecycle, rotation, and retry;
 - Xcode/device logs and dated screenshots/video as evidence.
 
-If no real iPhone is available, report iOS real-device verification as blocked, not passed.
+If no real iPhone is available, report iOS real-device verification as unverified, not passed. For the current user-approved simulator-only handoff, finish executable simulator checks and list the remaining hardware limitations; do not stop unrelated deliverable work waiting for an unavailable phone.
 
 ### iOS simulator-first gate
 
@@ -170,6 +170,22 @@ unit policies. It does not prove camera hardware, permission/settings UI,
 flash, physical App Check attestation, device orientation, frame time, memory,
 heat, or Android parity. The ten-request native OCR check is not a substitute
 for ten physical capture cycles.
+
+## Final simulator-only verification additions (2026-09-30)
+
+- Native smoke now exercises dark/blurred/15-degree-tilted fixtures and malformed image bytes, in addition to original native fixtures and ten sequential requests. Poor-image classification permits typed text or no-readable-text; it makes no accuracy claim.
+- Check actual iOS camera plugin discovery and repeated unavailable-camera recovery only on a simulator with no cameras:
+
+```bash
+flutter test integration_test/simulator_camera_recovery_test.dart \
+  -d <simulator-id> --dart-define=RUN_SIMULATOR_CAMERA_CHECK=true
+```
+
+Only disclosure persistence is replaced in this test; camera discovery uses the actual plugin. This is absent-hardware recovery, not camera permission or preview proof.
+
+- Use the iOS 18.5/x86_64 simulator for the pinned ML Kit packages. Current Flutter emits an arm64/iOS 26+ simulator warning for ML Kit; do not infer that the untested simulator family or physical device runs pass.
+- Reset the normal simulator target before XCTest as above. After device fixture tests, restore a normal general-run APK/app, so the installed final target is not the integration-test listener.
+- A native OCR that never settles may keep subsequent local work waiting. The common implementation is owned by another session; document actual cancellation/completion behavior without inventing native cancellation.
 
 ## Run record template
 

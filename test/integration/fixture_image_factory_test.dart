@@ -33,7 +33,7 @@ void main() {
         encodings[variant] = firstBytes;
       }
 
-      expect(encodings.values.map(Object.hashAll).toSet(), hasLength(5));
+      expect(encodings.values.map(Object.hashAll).toSet(), hasLength(7));
     },
   );
 }

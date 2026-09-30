@@ -87,8 +87,11 @@ Re-check environment/device facts immediately before implementation and E2E; the
 - Default evaluator debug builds initialize the dedicated
   `artinus-ocr-bongjae-202609` Spark project and use `firebase_ai` cloud-first
   OCR with App Check. The AI client must receive the active App Check instance.
-- Use official Korean ML Kit through a typed Pigeon fallback. Cloud and local
-  recognition are sequential, never speculative parallel work.
+- Use official Korean ML Kit through a typed Pigeon fallback. Local begins
+  after explicit selection or cloud failure, never speculatively. An already
+  dispatched cloud SDK request can overlap local work because it cannot be
+  cancelled; transaction identity excludes its stale result. Completion-level
+  native serialization/input retention are owned by the common-code session.
 - `ARTINUS_CLOUD_EVIDENCE=false` is the explicit local-only escape hatch. It
   routes an owned capture directly to local OCR before Firebase initialization,
   cloud image preparation, timers, or dispatch.
@@ -110,10 +113,19 @@ Re-check environment/device facts immediately before implementation and E2E; the
   path required by Firebase.
 - Firebase AI monitoring is enabled at 100% sampling by explicit user choice;
   only non-sensitive generated fixtures may be used for recorded live evidence.
-- Use a physical Android and borrowed iPhone for final real-device proof.
+- User direction on 2026-09-30: no physical iPhone is available; complete
+  maximum feasible simulator verification and disclose the unverified physical
+  camera/permission/flash/performance/parity criteria. Android/common OCR work
+  is owned by another session; this session must not edit that production scope.
 - Require clean-clone, fixed-input, cloud/local, Pigeon, frame-time, memory, and heat evidence.
 
 ## Latest observed evidence
+
+- Final iOS simulator handoff uses a read-only snapshot of the concurrent
+  common-code fix, with exact source hashes and fresh results in
+  `docs/FINAL_VERIFICATION_2026-09-30.md`. This is not physical iPhone proof.
+- Public GitHub visibility was explicitly authorized and verified on
+  2026-09-30. Earlier private checkpoint/access entries below are historical.
 
 - Executable commit `1d83b68`, recorded 2026-09-30 22:03 KST: ASCII-only
   source export passed `flutter pub get`, `flutter analyze` with 0 issues,

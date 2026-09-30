@@ -87,7 +87,7 @@ Submission context from the document-pass email: GitHub repository URL due by `2
 2. Separate camera, OCR, and presentation behind testable interfaces.
 3. Add deterministic state tests before native E2E.
 4. Port and verify platform configuration early, not at the end.
-5. Record real-device evidence for Android and iOS.
+5. Record Android evidence in its owner session; no physical iPhone is available. The user chose maximum feasible simulator verification and explicit disclosure of unverified iPhone hardware/performance criteria, without changing the original assignment requirements.
 6. Complete README from recorded decisions and results, never from memory.
 
 ## 8. Highest risks

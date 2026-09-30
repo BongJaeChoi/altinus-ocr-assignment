@@ -11,6 +11,52 @@ import 'support/fixture_image_factory.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets(
+    'real native OCR handles poor fixtures and rejects malformed bytes',
+    (tester) async {
+      if (!Platform.isAndroid && !Platform.isIOS) {
+        markTestSkipped('Native OCR smoke requires an Android or iOS target.');
+        return;
+      }
+      final factory = FixtureImageFactory();
+      final files = <File>[];
+      addTearDown(() async {
+        for (final file in files) {
+          if (await file.exists()) await file.delete();
+        }
+      });
+      final service = PigeonLocalOcrService();
+      for (final variant in [
+        FixtureImageVariant.darkLowContrast,
+        FixtureImageVariant.blurred,
+        FixtureImageVariant.skewed,
+      ]) {
+        final fixture = await factory.create(variant);
+        files.add(fixture);
+        expect(
+          await service.recognize(fixture.path),
+          anyOf(isA<TextDetected>(), isA<NoReadableText>()),
+          reason: variant.name,
+        );
+      }
+      final malformed = File(
+        '${files.first.parent.path}/altinus_fixture_malformed.png',
+      );
+      files.add(malformed);
+      await malformed.writeAsBytes([0, 1, 2, 3]);
+      await expectLater(
+        service.recognize(malformed.path),
+        throwsA(
+          isA<OcrFailure>().having(
+            (f) => f.kind,
+            'kind',
+            OcrFailureKind.invalidInput,
+          ),
+        ),
+      );
+    },
+  );
+
   testWidgets('real Pigeon Korean OCR classifies generated fixtures', (
     tester,
   ) async {
